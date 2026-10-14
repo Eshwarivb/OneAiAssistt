@@ -22,17 +22,7 @@ OneAIAssist is an enterprise-grade, multi-tenant AI CRM platform designed for au
 
 ---
 
-## 👥 Detailed Role-Based Documentation
 
-Access control rules are gated by Next.js middleware. Below is the specification for each supported role:
-
-| Feature Route | Superadmin (`PLATFORM_OWNER`) | Tenant Admin (`ADMIN`) | Manager (`MANAGER`) | Agent (`AGENT`) | Viewer (`VIEWER`) |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **/superadmin/\*** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **/dashboard/settings, /team, /billing, /api** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **/dashboard/sequences, /marketing** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **/dashboard/inbox, /leads, /customers, /bot-config** | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **/dashboard** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ### 🛡️ 1. Superadmin (Platform Owner)
 The `PLATFORM_OWNER` acts as the platform-level administrator. 

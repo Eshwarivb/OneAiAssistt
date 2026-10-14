@@ -10,7 +10,7 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
-      <div className="h-screen w-screen overflow-hidden flex bg-[#f9f9ff] text-[#1c1b1f]">
+      <div className="h-screen w-screen overflow-hidden flex bg-[#f8fafc] text-gray-900">
         {/* Dynamic Role-Gated Sidebar (Desktop Fixed + Mobile Drawer) */}
         <DashboardSidebar />
 
@@ -20,8 +20,8 @@ export default function DashboardLayout({
           <DashboardHeader />
 
           {/* Child Page Frame */}
-          <main className="flex-1 min-h-0 overflow-y-auto flex flex-col">
-            <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 flex-1 flex flex-col min-h-0">
+          <main className="flex-1 min-h-0 overflow-y-auto flex flex-col bg-[#f8fafc]">
+            <div className="w-full max-w-[1720px] mx-auto p-3 sm:p-4 lg:p-5 flex-1 flex flex-col min-h-0">
               {children}
             </div>
           </main>

@@ -13,7 +13,9 @@ import {
   Users,
   UserCheck,
   Megaphone,
+  Calendar,
   CalendarClock,
+  TrendingUp,
   LineChart,
   BarChart3,
   Bot,
@@ -22,6 +24,7 @@ import {
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
   X,
   LucideIcon,
 } from 'lucide-react';
@@ -69,13 +72,13 @@ export default function DashboardSidebar() {
           name: 'Leads',
           href: '/dashboard/leads',
           roles: ['PLATFORM_OWNER', 'ADMIN', 'MANAGER', 'AGENT'],
-          icon: Users,
+          icon: UserCheck,
         },
         {
           name: 'Customers',
           href: '/dashboard/customers',
           roles: ['PLATFORM_OWNER', 'ADMIN', 'MANAGER', 'AGENT'],
-          icon: UserCheck,
+          icon: Users,
         },
         {
           name: 'Campaigns',
@@ -87,13 +90,13 @@ export default function DashboardSidebar() {
           name: 'Sequences',
           href: '/dashboard/sequences',
           roles: ['PLATFORM_OWNER', 'ADMIN', 'MANAGER'],
-          icon: CalendarClock,
+          icon: Calendar,
         },
         {
           name: 'Marketing',
           href: '/dashboard/marketing',
           roles: ['PLATFORM_OWNER', 'ADMIN', 'MANAGER'],
-          icon: LineChart,
+          icon: TrendingUp,
         },
         {
           name: 'Analytics',
@@ -142,19 +145,16 @@ export default function DashboardSidebar() {
     <>
       {/* Brand Header */}
       <div className={cn(
-        "py-4 border-b border-white/10 flex items-center shrink-0 transition-all",
-        collapsed ? "px-3 justify-center" : "px-6 justify-between"
+        "py-3.5 border-b border-white/10 flex items-center shrink-0 transition-all",
+        collapsed ? "px-3 justify-center" : "px-4 justify-between"
       )}>
-        <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/OneAILogo.png"
-            alt="OneAIAssist Logo"
-            className="h-8 w-8 shrink-0 object-contain"
-          />
+        <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-white/20 border border-white/30 flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
           {!collapsed && (
-            <span className="font-bold tracking-tight text-white text-lg truncate">
-              OneAIAssist
+            <span className="font-bold tracking-tight text-white text-base truncate">
+              OneAI Assist
             </span>
           )}
         </Link>
@@ -162,7 +162,7 @@ export default function DashboardSidebar() {
           <button
             type="button"
             onClick={toggleCollapsed}
-            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+            className="hidden lg:flex items-center justify-center w-6 h-6 rounded-md hover:bg-white/10 text-white/70 hover:text-white transition-colors"
             title="Collapse sidebar"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -171,7 +171,7 @@ export default function DashboardSidebar() {
       </div>
 
       {/* Nav List */}
-      <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 px-2.5 py-3 space-y-4 overflow-y-auto overflow-x-hidden">
         <LayoutGroup id={collapsed ? "sidebar-collapsed" : "sidebar-expanded"}>
           {sections.map((section) => {
             const filteredItems = section.items.filter(
@@ -183,7 +183,7 @@ export default function DashboardSidebar() {
             return (
               <div key={section.title} className="space-y-1">
                 {!collapsed && (
-                  <h5 className="px-3 text-[10px] font-bold text-[#E2E8F0]/40 uppercase tracking-widest text-left truncate">
+                  <h5 className="px-3 text-[10px] font-bold text-white/50 uppercase tracking-widest text-left truncate">
                     {section.title}
                   </h5>
                 )}
@@ -201,25 +201,18 @@ export default function DashboardSidebar() {
                         href={item.href}
                         title={collapsed ? item.name : undefined}
                         className={cn(
-                          'relative flex items-center rounded-lg text-sm font-medium transition-colors duration-150',
+                          'relative flex items-center rounded-xl text-xs font-medium transition-colors duration-150',
                           collapsed
-                            ? 'justify-center p-2.5'
-                            : 'gap-3 px-3.5 py-2.5',
+                            ? 'justify-center p-2'
+                            : 'gap-2.5 px-3 py-2',
                           isActive
-                            ? 'text-white font-semibold shadow-sm'
-                            : 'text-[#E2E8F0] hover:text-white hover:bg-white/[0.08]'
+                            ? 'text-white font-semibold bg-white/15 border border-white/20 shadow-xs'
+                            : 'text-white/80 hover:text-white hover:bg-white/10 border border-transparent'
                         )}
                       >
-                        {isActive && (
-                          <motion.div
-                            layoutId="activeSidebarTab"
-                            className="absolute inset-0 bg-[#2563EB] rounded-lg -z-0"
-                            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-                          />
-                        )}
-                        <IconComponent className={cn("shrink-0 z-10", collapsed ? "w-5 h-5" : "w-5 h-5")} />
+                        <IconComponent className="shrink-0 z-10 w-4 h-4" />
                         {!collapsed && (
-                          <span className="z-10 truncate text-xs font-medium">
+                          <span className="z-10 truncate text-xs">
                             {item.name}
                           </span>
                         )}
@@ -235,14 +228,14 @@ export default function DashboardSidebar() {
 
       {/* Footer / System Status */}
       <div className={cn(
-        "p-3.5 border-t border-white/10 text-xs text-[#E2E8F0]/70 flex items-center shrink-0",
+        "p-3 border-t border-white/10 text-xs text-white/70 flex items-center shrink-0",
         collapsed ? "justify-center" : "justify-between"
       )}>
         {collapsed ? (
           <button
             type="button"
             onClick={toggleCollapsed}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
             title="Expand sidebar"
           >
             <ChevronRight className="w-4 h-4" />
@@ -250,10 +243,10 @@ export default function DashboardSidebar() {
         ) : (
           <>
             <div className="flex items-center gap-2 truncate">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
               <span className="font-medium text-white/90 text-[11px] truncate">System Online</span>
             </div>
-            <span className="text-[10px] uppercase font-bold text-white/50 tracking-wider">v1.0</span>
+            <span className="text-[11px] font-semibold text-white/60">V1.0</span>
           </>
         )}
       </div>
@@ -275,15 +268,16 @@ export default function DashboardSidebar() {
       {/* Mobile Slide-Over Drawer */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col bg-[#1B4B91] border-r border-white/10 text-white w-72 lg:hidden transition-transform duration-300 ease-in-out shadow-2xl h-full",
+          "fixed inset-y-0 left-0 z-50 flex flex-col bg-[#1252d4] border-r border-white/10 text-white w-64 lg:hidden transition-transform duration-300 ease-in-out shadow-2xl h-full",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/OneAILogo.png" alt="Logo" className="h-8 w-8 object-contain" />
-            <span className="font-bold text-white text-lg">OneAIAssist</span>
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-white/20 border border-white/30 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-bold text-white text-base">OneAI Assist</span>
           </div>
           <button
             type="button"
@@ -302,8 +296,8 @@ export default function DashboardSidebar() {
       {/* Desktop Fixed Sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col h-screen shrink-0 bg-[#1B4B91] border-r border-white/10 text-white transition-[width] duration-200 ease-in-out z-20 sticky top-0",
-          isCollapsed ? "w-20" : "w-64"
+          "hidden lg:flex flex-col h-screen shrink-0 bg-[#1252d4] border-r border-white/10 text-white transition-[width] duration-200 ease-in-out z-20 sticky top-0",
+          isCollapsed ? "w-16" : "w-52"
         )}
       >
         {renderNavContent(isCollapsed)}

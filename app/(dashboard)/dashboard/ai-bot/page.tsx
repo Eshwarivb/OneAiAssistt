@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
@@ -25,10 +25,14 @@ import {
   Plus,
   Trash2,
   Sliders,
-  CheckCircle2
+  CheckCircle2,
+  User,
+  Upload,
+  ArrowLeft
 } from 'lucide-react';
 
 type TabType =
+  | 'profile'
   | 'identity'
   | 'intake'
   | 'knowledge'
@@ -48,7 +52,73 @@ interface Question {
 }
 
 export default function AiBotPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('identity');
+  const [activeTab, setActiveTab] = useState<TabType>('profile');
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const moreDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Bot Profile Persona state
+  const [botName, setBotName] = useState('PME Assistant');
+  const [greetingMessage, setGreetingMessage] = useState(
+    'Welcome to Prime Marketing Experts! Are you looking to buy or sell health insurance?'
+  );
+  const [temperature, setTemperature] = useState<number>(0.3);
+  const [maxTokens, setMaxTokens] = useState<number>(1024);
+  const [isSavingPersona, setIsSavingPersona] = useState(false);
+  const [personaSavedSuccess, setPersonaSavedSuccess] = useState(false);
+
+  // Fetch persona from /api/bot/persona
+  useEffect(() => {
+    async function loadPersona() {
+      try {
+        const res = await fetch('/api/bot/persona');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.botName) setBotName(data.botName);
+          if (data.greetingMessage) setGreetingMessage(data.greetingMessage);
+          if (typeof data.temperature === 'number') setTemperature(data.temperature);
+          if (typeof data.maxTokens === 'number') setMaxTokens(data.maxTokens);
+        }
+      } catch (err) {
+        console.warn('Failed to load persona:', err);
+      }
+    }
+    loadPersona();
+  }, []);
+
+  const saveBotPersona = async () => {
+    setIsSavingPersona(true);
+    try {
+      const res = await fetch('/api/bot/persona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          botName,
+          greetingMessage,
+          temperature,
+          maxTokens,
+        }),
+      });
+      if (res.ok) {
+        setPersonaSavedSuccess(true);
+        setTimeout(() => setPersonaSavedSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to save bot persona:', err);
+    } finally {
+      setIsSavingPersona(false);
+    }
+  };
+
+  // Close More dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreDropdownRef.current && !moreDropdownRef.current.contains(event.target as Node)) {
+        setIsMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -57,6 +127,7 @@ export default function AiBotPage() {
       if (
         tabParam &&
         [
+          'profile',
           'identity',
           'intake',
           'knowledge',
@@ -198,65 +269,177 @@ export default function AiBotPage() {
   ];
 
   return (
-    <div className="space-y-8 text-left font-sans text-[#1c1b1f]">
+    <div className="space-y-6 text-left font-sans text-gray-900">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#c3c6d7] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
           <div className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-[#004ac6]" />
-            <h1 className="text-2xl font-bold tracking-tight text-[#1c1b1f]">
+            <Sparkles className="w-5 h-5 text-[#1252d4]" />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
               AI & Bot Studio
             </h1>
           </div>
-          <p className="text-xs text-[#49454f] mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Configure agent persona, hyperparameter tuning, interactive WhatsApp intake flows, and human handover rules.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* WhatsApp Chat Simulator Button matching Screenshot 1 */}
           <button
             type="button"
             onClick={() => setShowSimulator(!showSimulator)}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition flex items-center gap-2"
+            className="px-4 py-1.5 bg-[#0f3829] hover:bg-[#144835] text-white rounded-xl shadow-xs transition flex items-center gap-2.5 h-[42px]"
           >
-            <Play className="w-4 h-4 text-emerald-400" />
-            {showSimulator ? 'Close Simulator' : 'WhatsApp Chat Simulator'}
+            <Play className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400 shrink-0" />
+            <div className="text-left text-white leading-tight">
+              <div className="text-[11px] font-bold">WhatsApp Chat</div>
+              <div className="text-[11px] font-bold">Simulator</div>
+            </div>
           </button>
+
+          {/* More Dropdown Trigger */}
+          <div className="relative" ref={moreDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsMoreOpen(!isMoreOpen)}
+              className="px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 flex items-center gap-1.5 shadow-xs transition-colors h-[42px]"
+            >
+              <span>More</span>
+              <span className="text-[10px]">{isMoreOpen ? '▴' : '▾'}</span>
+            </button>
+
+            {/* More Dropdown Menu containing EXACTLY the 8 items */}
+            {isMoreOpen && (
+              <div className="absolute right-0 top-full mt-2 w-60 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in duration-100">
+                {navTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setIsMoreOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-xs font-medium flex items-center gap-2.5 transition-colors ${
+                        isActive
+                          ? 'bg-blue-50 text-[#1252d4] font-bold'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#1252d4]' : 'text-gray-400'}`} />
+                      <span className="truncate">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 8-Tab Secondary Navigation */}
-      <div className="flex items-center gap-1 border-b border-[#c3c6d7] overflow-x-auto pb-px scrollbar-none">
-        {navTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-bold whitespace-nowrap transition-all border-b-2 ${
-                isActive
-                  ? 'border-[#004ac6] text-[#004ac6] bg-blue-50/50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-[#004ac6]' : 'text-gray-400'}`} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Main Content Area */}
+      {activeTab === 'profile' ? (
+        /* Bot Profile Card - EXACT VISUAL MATCH TO SCREENSHOT 1 */
+        <div className="bg-white border border-gray-200/90 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
+          {/* Card Header with User Profile Icon */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-[#1252d4]">
+              <User className="w-5 h-5 text-[#1252d4]" />
+            </div>
+            <h2 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
+              Bot Profile
+            </h2>
+          </div>
 
-      {/* Tab Contents with Smooth Crossfades */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full"
-        >
+          {/* Form Fields */}
+          <div className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-2">
+                Bot Display Name
+              </label>
+              <input
+                type="text"
+                value={botName}
+                onChange={(e) => setBotName(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                placeholder="PME Assistant"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-2">
+                Initial Greeting Copy (Bot Intro)
+              </label>
+              <textarea
+                rows={4}
+                value={greetingMessage}
+                onChange={(e) => setGreetingMessage(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-xs sm:text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors resize-y"
+                placeholder="Welcome to Prime Marketing Experts! Are you looking to buy or sell health insurance?"
+              />
+            </div>
+          </div>
+
+          {/* Action Row */}
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              {personaSavedSuccess && (
+                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  Persona & Hyperparameters saved successfully!
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={saveBotPersona}
+              disabled={isSavingPersona}
+              className="ml-auto px-6 py-3 bg-[#1252d4] hover:bg-[#0f44b8] text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs hover:shadow transition flex items-center gap-2 disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4" />
+              <span>{isSavingPersona ? 'Saving...' : 'Save Persona & Hyperparameters'}</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Sub-module Views accessible from More dropdown */
+        <div className="space-y-6">
+          <div className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-xs">
+            <div className="flex items-center gap-2">
+              {(() => {
+                const currentTab = navTabs.find((t) => t.id === activeTab);
+                const Icon = currentTab?.icon;
+                return (
+                  <>
+                    {Icon && <Icon className="w-4 h-4 text-[#1252d4]" />}
+                    <span className="text-sm font-bold text-gray-900">{currentTab?.label}</span>
+                  </>
+                );
+              })()}
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('profile')}
+              className="text-xs font-semibold text-gray-600 hover:text-gray-900 flex items-center gap-1.5 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Bot Profile</span>
+            </button>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full"
+            >
           {activeTab === 'identity' && <BotIdentityTab />}
           {activeTab === 'knowledge' && <BotKnowledgeRagTab />}
           {activeTab === 'escalation' && <BotEscalationTab />}
@@ -437,10 +620,12 @@ export default function AiBotPage() {
               </div>
             </div>
           </div>
-        </div>
-      )}
-        </motion.div>
-      </AnimatePresence>
+          </div>
+        )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    )}
 
       {/* WhatsApp Customer Simulator Drawer */}
       {showSimulator && (

@@ -144,7 +144,12 @@ export default function SettingsPage() {
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
           >
-            {activeTab === 'channels' && <SettingsChannelsTab tenantId={tenantId} />}
+            {activeTab === 'channels' && (
+              <SettingsChannelsTab 
+                tenantId={tenantId} 
+                onSwitchTab={(tab) => setActiveTab(tab as any)} 
+              />
+            )}
             {activeTab === 'workspace' && <SettingsWorkspaceTab tenantId={tenantId} />}
             {activeTab === 'ai' && <SettingsAiTab />}
             {activeTab === 'developer' && <SettingsDeveloperTab />}

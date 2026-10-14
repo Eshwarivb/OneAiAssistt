@@ -16,6 +16,11 @@ export interface InstagramChatViewProps {
   needsEscalation: boolean;
   onTakeover?: () => void;
   onResolve?: () => void;
+  sessionWindow?: any;
+  isRecording?: boolean;
+  recordingSeconds?: number;
+  onStartRecording?: () => void;
+  onStopRecording?: () => void;
 }
 
 export default function InstagramChatView({

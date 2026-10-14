@@ -25,6 +25,16 @@ export interface WhatsAppChatViewProps {
   needsEscalation: boolean;
   onTakeover?: () => void;
   onResolve?: () => void;
+  sessionWindow?: {
+    isClosed: boolean;
+    text: string;
+    hoursRemaining: number;
+    msRemaining: number;
+  } | null;
+  isRecording?: boolean;
+  recordingSeconds?: number;
+  onStartRecording?: () => void;
+  onStopRecording?: () => void;
 }
 
 export default function WhatsAppChatView({
@@ -39,6 +49,11 @@ export default function WhatsAppChatView({
   needsEscalation,
   onTakeover,
   onResolve,
+  sessionWindow,
+  isRecording,
+  recordingSeconds = 0,
+  onStartRecording,
+  onStopRecording,
 }: WhatsAppChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -59,68 +74,118 @@ export default function WhatsAppChatView({
     }
   };
 
-  return (
-    <div className="flex-1 flex flex-col h-full bg-[#efeae2] relative overflow-hidden font-sans">
-      {/* WhatsApp Signature Subtle Doodle Background Pattern */}
-      <div 
-        className="absolute inset-0 opacity-[0.06] pointer-events-none z-0"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000000' fill-rule='evenodd'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E")`,
-        }}
-      />
+  const getInitials = (name: string, phone: string) => {
+    const trimmed = name.trim();
+    if (trimmed && trimmed !== phone) {
+      const parts = trimmed.split(/\s+/);
+      if (parts.length > 1) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      return trimmed.substring(0, 2).toUpperCase();
+    }
+    return phone.substring(0, 2);
+  };
 
-      {/* WhatsApp Header Bar */}
-      <header className="h-[60px] bg-[#f0f2f5] border-b border-[#d1d7db] px-4 flex items-center justify-between shrink-0 z-10 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#dfe5e7] flex items-center justify-center text-[#54656f] font-semibold text-sm border border-[#c3c6d7]">
-            {customerName.charAt(0).toUpperCase()}
+  // Group messages or get date label
+  const getDateLabel = () => {
+    if (messages.length === 0) return 'TODAY';
+    try {
+      const firstDate = new Date(messages[0].createdAt);
+      const isToday = new Date().toDateString() === firstDate.toDateString();
+      if (isToday) {
+        return `TODAY, ${firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase()}`;
+      }
+      return firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
+    } catch {
+      return 'TODAY';
+    }
+  };
+
+  const initials = getInitials(customerName, customerPhone);
+
+  return (
+    <div className="flex-1 flex flex-col h-full bg-[#f8fafc] relative overflow-hidden font-sans">
+      {/* Compact Header Bar */}
+      <header className="h-14 bg-white border-b border-gray-200 px-4 flex items-center justify-between shrink-0 z-10 shadow-2xs">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 font-bold text-xs border border-blue-200/80 flex items-center justify-center shrink-0">
+            {initials}
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-[15px] text-[#111b21] leading-tight">
+              <span className="font-bold text-xs sm:text-sm text-gray-900 truncate leading-tight">
                 {customerName}
               </span>
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
-                WhatsApp
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                WHATSAPP
               </span>
             </div>
-            <span className="text-[12px] text-[#667781] leading-tight mt-0.5">
-              +{customerPhone} • online
-            </span>
+            <div className="flex items-center gap-1.5 text-[11px] text-gray-500 leading-tight mt-0.5">
+              <span>+{customerPhone}</span>
+              <span className="text-gray-300">•</span>
+              <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                online
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* WhatsApp Header Actions */}
-        <div className="flex items-center gap-3 text-[#54656f]">
-          {needsEscalation && (
-            <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+        {/* Header Actions */}
+        <div className="flex items-center gap-1 sm:gap-2 text-gray-500 shrink-0">
+          {needsEscalation ? (
+            <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1">
               Escalated to Human
             </span>
+          ) : (
+            <span className="hidden sm:inline-flex bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full mr-1">
+              AI Handling
+            </span>
           )}
-          <button title="Search in chat" className="p-1.5 hover:bg-[#e9edef] rounded-full transition-colors">
-            <span className="material-symbols-outlined text-[20px]">search</span>
+
+          <button
+            type="button"
+            title="Search in chat"
+            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <span className="material-symbols-outlined text-[18px]">search</span>
           </button>
-          <button title="Attach file" className="p-1.5 hover:bg-[#e9edef] rounded-full transition-colors">
-            <span className="material-symbols-outlined text-[20px]">attach_file</span>
+          <button
+            type="button"
+            title="Attach file"
+            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <span className="material-symbols-outlined text-[18px]">attach_file</span>
           </button>
-          <button title="Options" className="p-1.5 hover:bg-[#e9edef] rounded-full transition-colors">
-            <span className="material-symbols-outlined text-[20px]">more_vert</span>
+          <button
+            type="button"
+            title="More options"
+            className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <span className="material-symbols-outlined text-[18px]">more_vert</span>
           </button>
         </div>
       </header>
 
       {/* Message Stream Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-2 z-10">
-        {/* Encrypted Notice Banner */}
-        <div className="flex justify-center my-3">
-          <div className="bg-[#ffeecd] text-[#54656f] text-[11px] font-medium px-3 py-1 rounded-lg shadow-sm max-w-md text-center border border-[#ffdda6] flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-[13px] text-[#d97706]">lock</span>
-            Messages and calls are end-to-end encrypted on WhatsApp.
-          </div>
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3 z-10">
+        {/* Date Divider Capsule */}
+        <div className="flex justify-center my-2">
+          <span className="text-[10px] font-semibold text-gray-500 bg-white border border-gray-200/80 px-3 py-0.5 rounded-full shadow-2xs select-none uppercase tracking-wide">
+            {getDateLabel()}
+          </span>
         </div>
 
+        {/* Messages */}
         {messages.map((msg) => {
           const isOutbound = msg.direction === 'OUTBOUND';
+          const senderLabel =
+            msg.senderType === 'BOT'
+              ? 'AI Assistant'
+              : msg.senderType === 'AGENT'
+              ? 'SUPPORT AGENT'
+              : 'SUPPORT AGENT';
+
           return (
             <div
               key={msg.id}
@@ -131,39 +196,40 @@ export default function WhatsAppChatView({
             >
               <div
                 className={cn(
-                  'relative max-w-[75%] sm:max-w-[65%] px-3 pt-2 pb-1 text-[14.2px] leading-[19px] text-[#111b21] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]',
+                  'relative max-w-[80%] sm:max-w-[70%] px-3.5 py-2 text-xs sm:text-[13px] leading-relaxed shadow-2xs transition-all',
                   isOutbound
-                    ? 'bg-[#d9fdd3] rounded-[7.5px] rounded-tr-none'
-                    : 'bg-white rounded-[7.5px] rounded-tl-none'
+                    ? 'bg-[#e7f8ec] text-gray-900 border border-emerald-200/70 rounded-2xl rounded-tr-xs'
+                    : 'bg-white text-gray-900 border border-gray-200/80 rounded-2xl rounded-tl-xs'
                 )}
               >
-                {/* Outbound Top-Right Wedge Tail */}
+                {/* Outbound Sender Header */}
                 {isOutbound && (
-                  <span className="absolute -top-0 -right-2 w-0 h-0 border-t-[8px] border-t-[#d9fdd3] border-r-[8px] border-r-transparent" />
-                )}
-                {/* Inbound Top-Left Wedge Tail */}
-                {!isOutbound && (
-                  <span className="absolute -top-0 -left-2 w-0 h-0 border-t-[8px] border-t-white border-l-[8px] border-l-transparent" />
-                )}
-
-                {/* Sender Indicator */}
-                {isOutbound && (
-                  <div className="text-[10px] font-bold text-[#008069] uppercase tracking-wider mb-0.5">
-                    {msg.senderType === 'BOT' ? 'AI Agent' : 'Support Agent'}
+                  <div className="text-[9px] font-bold text-emerald-800 uppercase tracking-wider mb-1 flex items-center justify-between gap-2">
+                    <span>{senderLabel}</span>
                   </div>
                 )}
 
-                {/* Message Body */}
-                <div className="break-words whitespace-pre-wrap pr-14">
+                {/* Message Content */}
+                <div className="break-words whitespace-pre-wrap font-normal text-gray-900">
                   {msg.content}
                 </div>
 
-                {/* Inline Floating Timestamp + Double Ticks */}
-                <div className="flex items-center justify-end gap-1 text-[11px] text-[#667781] float-right -mt-2 ml-2 select-none">
+                {/* Timestamp & Status ticks */}
+                <div
+                  className={cn(
+                    'flex items-center justify-end gap-1 text-[10px] mt-1 select-none',
+                    isOutbound ? 'text-emerald-800/75' : 'text-gray-400'
+                  )}
+                >
+                  {isOutbound && (
+                    <span className="text-[9px] font-semibold uppercase tracking-wider mr-1 opacity-80">
+                      {senderLabel} •
+                    </span>
+                  )}
                   <span>{formatTime(msg.createdAt)}</span>
                   {isOutbound && (
-                    <span className="text-[#53bdeb] text-[13px] font-bold tracking-tighter" title="Read">
-                      ✓✓
+                    <span className="text-[#008069] text-[12px] font-bold leading-none ml-0.5" title="Read">
+                      ✓
                     </span>
                   )}
                 </div>
@@ -171,43 +237,91 @@ export default function WhatsAppChatView({
             </div>
           );
         })}
+
+        {/* Session Timer Active Status Pill */}
+        <div className="flex justify-center pt-2 pb-1">
+          <div className="bg-white border border-gray-200 text-gray-600 text-xs px-3.5 py-1 rounded-full shadow-2xs flex items-center gap-1.5 select-none">
+            <span className="material-symbols-outlined text-[14px] text-blue-600">schedule</span>
+            <span>
+              {sessionWindow?.isClosed
+                ? 'Session expired • 24h Customer Service Window closed'
+                : `Awaiting customer response... Session timer active (${sessionWindow?.text || 'Active'})`}
+            </span>
+          </div>
+        </div>
+
         <div ref={scrollRef} />
       </div>
 
-      {/* WhatsApp Composer Dock */}
-      <footer className="h-[62px] bg-[#f0f2f5] border-t border-[#d1d7db] px-4 flex items-center gap-3 shrink-0 z-10">
-        <button type="button" className="text-[#54656f] hover:text-[#111b21] transition-colors p-1" title="Emoji">
-          <span className="material-symbols-outlined text-[24px]">mood</span>
+      {/* Voice Recording In-Progress Banner */}
+      {isRecording && (
+        <div className="px-4 py-2 bg-rose-50 border-t border-rose-200 flex items-center justify-between shrink-0 animate-pulse">
+          <div className="flex items-center gap-2 text-rose-600 text-xs font-semibold">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+            <span>Recording Voice Note... ({recordingSeconds}s)</span>
+          </div>
+          <button
+            type="button"
+            onClick={onStopRecording}
+            className="px-2.5 py-1 bg-rose-600 text-white text-xs font-semibold rounded-lg hover:bg-rose-700 transition-colors"
+          >
+            Finish & Send
+          </button>
+        </div>
+      )}
+
+      {/* Modern Composer Dock */}
+      <footer className="h-14 bg-white border-t border-gray-200 px-3.5 flex items-center gap-2 shrink-0 z-10">
+        <button
+          type="button"
+          className="text-gray-500 hover:text-gray-800 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+          title="Attach File"
+        >
+          <span className="material-symbols-outlined text-[20px]">attach_file</span>
         </button>
-        <button type="button" className="text-[#54656f] hover:text-[#111b21] transition-colors p-1" title="Attach">
-          <span className="material-symbols-outlined text-[24px]">attach_file</span>
+
+        <button
+          type="button"
+          className="text-gray-500 hover:text-gray-800 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+          title="Emoji"
+        >
+          <span className="material-symbols-outlined text-[20px]">mood</span>
         </button>
 
         {/* Input Field */}
-        <form onSubmit={onSend} className="flex-1 flex items-center gap-2">
+        <form onSubmit={onSend} className="flex-1 flex items-center gap-2 min-w-0">
           <input
             type="text"
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 bg-white text-[#111b21] placeholder-[#8696a0] rounded-lg px-4 py-2 text-[14px] focus:outline-none border-none shadow-sm"
+            className="flex-1 bg-gray-50 hover:bg-gray-100/60 focus:bg-white text-gray-900 placeholder:text-gray-400 rounded-xl px-3.5 py-1.5 text-xs sm:text-sm border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
           />
+
           {replyText.trim() ? (
             <button
               type="submit"
               disabled={isSending}
-              className="w-10 h-10 rounded-full bg-[#00a884] hover:bg-[#008f6f] text-white flex items-center justify-center shadow transition-transform active:scale-95 disabled:opacity-50"
+              className="w-8 h-8 rounded-lg bg-[#004ac6] hover:bg-[#003cb0] text-white flex items-center justify-center shadow-xs transition-transform active:scale-95 disabled:opacity-50 shrink-0"
               title="Send Message"
             >
-              <span className="material-symbols-outlined text-[20px]">send</span>
+              <span className="material-symbols-outlined text-[17px]">send</span>
             </button>
           ) : (
             <button
               type="button"
-              className="text-[#54656f] hover:text-[#111b21] p-2 rounded-full transition-colors"
-              title="Voice Message"
+              onClick={isRecording ? onStopRecording : onStartRecording}
+              className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0",
+                isRecording
+                  ? "bg-rose-500 text-white animate-pulse"
+                  : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+              )}
+              title={isRecording ? "Stop Recording" : "Voice Note"}
             >
-              <span className="material-symbols-outlined text-[24px]">mic</span>
+              <span className="material-symbols-outlined text-[20px]">
+                {isRecording ? 'mic_off' : 'mic'}
+              </span>
             </button>
           )}
         </form>
@@ -215,3 +329,4 @@ export default function WhatsAppChatView({
     </div>
   );
 }
+

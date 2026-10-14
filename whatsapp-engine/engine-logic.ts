@@ -1,4 +1,4 @@
-import makeWASocket, { DisconnectReason, Browsers, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import makeWASocket, { DisconnectReason, Browsers, fetchLatestBaileysVersion, fetchLatestWaWebVersion } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode';
 import { getTenantPrisma, prisma } from '../lib/db/index';
 import { decrypt, encrypt } from '../lib/encryption';
@@ -11,11 +11,50 @@ import { IntakeQualificationSkill } from '../lib/claw/IntakeQualificationSkill';
 import { toJid } from './transport/TransportManager';
 import { enqueueInboundJob } from './agents/IngressService';
 import { InboundJobWorker } from './InboundJobWorker';
+import { getSocketIO, setSocketIO } from '../lib/socket-server';
 
-export const sessions = new Map<string, any>();
-export const qrCodes = new Map<string, string>();
-export const pairingCodes = new Map<string, string>();
-export const messageCaches = new Map<string, Map<string, any>>();
+let activeIO: any = undefined;
+
+export function setEngineIO(io: any) {
+  if (io) {
+    activeIO = io;
+    setSocketIO(io);
+  }
+}
+
+export function getEngineIO(): any {
+  return activeIO || getSocketIO();
+}
+
+export function emitToTenant(tenantId: string, event: string, data: any, localIo?: any) {
+  const ioInstance = localIo || activeIO || getSocketIO();
+  if (ioInstance && typeof ioInstance.to === 'function') {
+    ioInstance.to(`tenant_${tenantId}`).emit(event, data);
+  } else {
+    console.warn(`[Engine] Socket.IO instance unavailable to emit "${event}" to tenant_${tenantId}`);
+  }
+}
+
+const globalEngine = global as unknown as {
+  __whatsapp_sessions: Map<string, any>;
+  __whatsapp_qrCodes: Map<string, string>;
+  __whatsapp_pairingCodes: Map<string, string>;
+  __whatsapp_messageCaches: Map<string, Map<string, any>>;
+  __whatsapp_connectingTenants: Set<string>;
+  __whatsapp_reconnectAttempts: Map<string, number>;
+};
+
+export const sessions = globalEngine.__whatsapp_sessions || new Map<string, any>();
+export const qrCodes = globalEngine.__whatsapp_qrCodes || new Map<string, string>();
+export const pairingCodes = globalEngine.__whatsapp_pairingCodes || new Map<string, string>();
+export const messageCaches = globalEngine.__whatsapp_messageCaches || new Map<string, Map<string, any>>();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalEngine.__whatsapp_sessions = sessions;
+  globalEngine.__whatsapp_qrCodes = qrCodes;
+  globalEngine.__whatsapp_pairingCodes = pairingCodes;
+  globalEngine.__whatsapp_messageCaches = messageCaches;
+}
 
 export function cacheMessage(tenantId: string, id: string, message: any) {
   let cache = messageCaches.get(tenantId);
@@ -33,18 +72,21 @@ export function cacheMessage(tenantId: string, id: string, message: any) {
 }
 
 // Fix 3: In-flight guard — prevents double-socket creation on concurrent calls
-const connectingTenants = new Set<string>();
+const connectingTenants = globalEngine.__whatsapp_connectingTenants || new Set<string>();
+if (process.env.NODE_ENV !== 'production') globalEngine.__whatsapp_connectingTenants = connectingTenants;
 
 // Fix 4: Per-tenant reconnect attempt counter for exponential backoff
-const reconnectAttempts = new Map<string, number>();
+const reconnectAttempts = globalEngine.__whatsapp_reconnectAttempts || new Map<string, number>();
+if (process.env.NODE_ENV !== 'production') globalEngine.__whatsapp_reconnectAttempts = reconnectAttempts;
 
 // Fix 4: Schedule a reconnect with capped exponential backoff (1s → 2s → 4s … 60s max)
-function scheduleReconnect(tenantId: string, io: any): void {
+function scheduleReconnect(tenantId: string, io: any, delayMs?: number): void {
   const attempts = (reconnectAttempts.get(tenantId) ?? 0) + 1;
   reconnectAttempts.set(tenantId, attempts);
-  const delay = Math.min(60_000, 1_000 * Math.pow(2, attempts - 1)) + Math.floor(Math.random() * 1000);
+  const delay = delayMs ?? (Math.min(60_000, 1_000 * Math.pow(2, attempts - 1)) + Math.floor(Math.random() * 1000));
+  const currentIo = io || getEngineIO();
   console.log(`[Engine] Reconnect attempt ${attempts} for tenant ${tenantId} in ${Math.round(delay)}ms`);
-  setTimeout(() => connectTenant(tenantId, io), delay);
+  setTimeout(() => connectTenant(tenantId, currentIo), delay);
 }
 
 /**
@@ -111,13 +153,13 @@ export async function handleMessageStatusUpdate(
     console.log(`[Engine] Message ${message.id} (channelId: ${channelMessageId}) status updated to ${newStatus}`);
 
     // Emit live socket event
-    io.to(`tenant_${tenantId}`).emit('message_updated', {
+    emitToTenant(tenantId, 'message_updated', {
       messageId: message.id,
       conversationId: message.conversationId,
       status: newStatus,
       deliveredAt: updatedMsg.deliveredAt,
       readAt: updatedMsg.readAt,
-    });
+    }, io);
 
     // Check if this message was sent to a customer associated with a broadcast campaign
     if (message.conversation?.customerId) {
@@ -167,11 +209,11 @@ export async function handleMessageStatusUpdate(
             },
           });
 
-          io.to(`tenant_${tenantId}`).emit('broadcast_stats_updated', {
+          emitToTenant(tenantId, 'broadcast_stats_updated', {
             campaignId,
             delivered: Math.max(deliveredCount, 1),
             read: readCount,
-          });
+          }, io);
         }
       }
     }
@@ -235,7 +277,7 @@ export async function runAIAgentAutoResponse(tenantId: string, conversationId: s
       });
 
       // Emit status updates to inform agent dashboard banners
-      io.to(`tenant_${tenantId}`).emit('whatsapp_status_update', { aiTrialExceeded: true });
+      emitToTenant(tenantId, 'whatsapp_status_update', { aiTrialExceeded: true }, io);
       return;
     }
     throw err;
@@ -311,7 +353,7 @@ export async function runAIAgentAutoResponse(tenantId: string, conversationId: s
           });
 
           // Emit new_message to Socket.io clients
-          io.to(`tenant_${tenantId}`).emit('new_message', {
+          emitToTenant(tenantId, 'new_message', {
             conversationId: conversation.id,
             message: {
               id: dbMessage.id,
@@ -320,7 +362,7 @@ export async function runAIAgentAutoResponse(tenantId: string, conversationId: s
               senderType: dbMessage.senderType,
               createdAt: dbMessage.createdAt instanceof Date ? dbMessage.createdAt.toISOString() : dbMessage.createdAt,
             },
-          });
+          }, io);
         } catch (err) {
           console.error('[AI Agent] Failed to dispatch WhatsApp bot reply:', err);
         }
@@ -346,7 +388,7 @@ export async function runAIAgentAutoResponse(tenantId: string, conversationId: s
         });
 
         // Emit new_message to Socket.io clients (agent inbox and customer widget both listen)
-        io.to(`tenant_${tenantId}`).emit('new_message', {
+        emitToTenant(tenantId, 'new_message', {
           conversationId: conversation.id,
           message: {
             id: dbMessage.id,
@@ -355,7 +397,7 @@ export async function runAIAgentAutoResponse(tenantId: string, conversationId: s
             senderType: dbMessage.senderType,
             createdAt: dbMessage.createdAt instanceof Date ? dbMessage.createdAt.toISOString() : dbMessage.createdAt,
           },
-        });
+        }, io);
       } catch (err) {
         console.error('[AI Agent] Failed to dispatch WEBCHAT bot reply:', err);
       }
@@ -377,7 +419,13 @@ export async function runAIAgentAutoResponse(tenantId: string, conversationId: s
  *  - Fix 4: exponential backoff on transient drops
  *  - Fix 5: clearDatabaseAuthState on loggedOut
  */
-export async function connectTenant(tenantId: string, io: any, phoneNumber?: string) {
+export async function connectTenant(tenantId: string, io?: any, phoneNumber?: string) {
+  if (io) {
+    setEngineIO(io);
+  } else {
+    io = getEngineIO() || getSocketIO();
+  }
+
   // Fix 3: In-flight guard — skip if already connecting
   if (connectingTenants.has(tenantId)) {
     console.log(`[Engine] Connection already in progress for tenant: ${tenantId}`);
@@ -413,13 +461,28 @@ export async function connectTenant(tenantId: string, io: any, phoneNumber?: str
 
     // Fix 1: Fetch the live WhatsApp Web version from WA's servers.
     // Without this, Baileys uses a bundled/stale version which WA rejects with 405.
-    let version: [number, number, number] = [2, 3000, 1015901307];
+    let version: [number, number, number] = [2, 3000, 1043857760];
     try {
       const result = await fetchLatestBaileysVersion();
-      version = result.version;
-      console.log(`[Engine] Baileys version: ${version.join('.')}, isLatest: ${result.isLatest}`);
+      if (result?.version) {
+        version = result.version;
+        if (result.isLatest) {
+          console.log(`[Engine] Baileys latest version: ${version.join('.')}`);
+        } else {
+          console.warn(`[Engine] Baileys version ${version.join('.')} (isLatest=false, fetch error: ${result.error || 'none'})`);
+        }
+      }
     } catch (e) {
-      console.warn('[Engine] fetchLatestBaileysVersion failed, using fallback version:', e);
+      console.warn('[Engine] fetchLatestBaileysVersion failed, trying fetchLatestWaWebVersion fallback:', e);
+      try {
+        const waWeb = await fetchLatestWaWebVersion();
+        if (waWeb?.version) {
+          version = waWeb.version;
+          console.log(`[Engine] Fetched live WA Web version: ${version.join('.')}`);
+        }
+      } catch (err2) {
+        console.warn(`[Engine] fetchLatestWaWebVersion failed (${err2}). Using verified fallback version: ${version.join('.')}`);
+      }
     }
 
     const retryMap = new Map<string, any>();
@@ -456,10 +519,15 @@ export async function connectTenant(tenantId: string, io: any, phoneNumber?: str
       setTimeout(async () => {
         try {
           const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+          if (!cleanPhone || cleanPhone.length < 10) {
+            console.warn(`[Engine] Invalid phone number provided for pairing: "${phoneNumber}" -> "${cleanPhone}"`);
+            return;
+          }
+          console.log(`[Engine] Requesting pairing code for normalized phone: ${cleanPhone}`);
           const code = await sock.requestPairingCode(cleanPhone);
           console.log(`[Engine] Pairing Code for tenant ${tenantId}: ${code}`);
           pairingCodes.set(tenantId, code);
-          io.to(`tenant_${tenantId}`).emit('whatsapp_pairing_code', { pairingCode: code });
+          emitToTenant(tenantId, 'whatsapp_pairing_code', { pairingCode: code }, io);
         } catch (err) {
           console.error(`[Engine] Failed to generate pairing code for tenant ${tenantId}:`, err);
         }
@@ -479,7 +547,7 @@ export async function connectTenant(tenantId: string, io: any, phoneNumber?: str
             create: { tenantId, sessionData: '', status: 'QR_PENDING' },
             update: { status: 'QR_PENDING' },
           });
-          io.to(`tenant_${tenantId}`).emit('whatsapp_qr', { qr: qrDataUrl });
+          emitToTenant(tenantId, 'whatsapp_qr', { qr: qrDataUrl }, io);
         } catch (err) {
           console.error(`[Engine] Failed to emit QR for tenant ${tenantId}:`, err);
         }
@@ -492,7 +560,7 @@ export async function connectTenant(tenantId: string, io: any, phoneNumber?: str
         // Fix 4: Reset backoff counter on successful connection
         reconnectAttempts.delete(tenantId);
 
-        const phone = sock.user?.id.split(':')[0] || '';
+        const phone = sock.user?.id?.split(':')[0] || sock.user?.id?.split('@')[0] || '';
         try {
           await db.whatsAppNumber.upsert({
             where: { tenantId },
@@ -502,28 +570,46 @@ export async function connectTenant(tenantId: string, io: any, phoneNumber?: str
         } catch (err) {
           console.error(`[Engine] Failed to update CONNECTED status for tenant ${tenantId}:`, err);
         }
-        io.to(`tenant_${tenantId}`).emit('whatsapp_status', { status: 'CONNECTED', phoneNumber: phone });
+        emitToTenant(tenantId, 'whatsapp_status', { status: 'CONNECTED', phoneNumber: phone }, io);
       }
 
       if (connection === 'close') {
-        const lastDisconnectError = lastDisconnect?.error as Boom | undefined;
+        const lastDisconnectError = lastDisconnect?.error as Boom | any;
         const statusCode = lastDisconnectError?.output?.statusCode;
+        const errorMessage = lastDisconnectError?.message || 'No error message';
+        const errorPayload = lastDisconnectError?.output?.payload;
+        const errorData = lastDisconnectError?.data;
 
-        // 401/405 = loggedOut — terminal, wipe auth, no reconnect
-        // 403 = banned — terminal, keep auth for inspection, no reconnect
-        // 440 = connectionReplaced — terminal, no reconnect
-        // 408/515/503/500/undefined = transient — reconnect with backoff
-        const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 405 || statusCode === 401;
-        const isForbidden = statusCode === 403;
-        const isReplaced = statusCode === 440;
-        const isTerminal = isLoggedOut || isForbidden || isReplaced;
-
-        console.log(`[Engine] Connection closed for tenant ${tenantId}. Code: ${statusCode}, Terminal: ${isTerminal}`);
+        console.error(`[Engine] Baileys connection closed for tenant ${tenantId}:`, {
+          statusCode,
+          message: errorMessage,
+          payload: errorPayload,
+          data: errorData,
+          isBoom: lastDisconnectError?.isBoom,
+          stack: lastDisconnectError?.stack,
+        });
 
         sessions.delete(tenantId);
 
+        // Check disconnect reasons:
+        // DisconnectReason.restartRequired = 515: Baileys needs to restart (e.g. after pairing / handshake)
+        const isRestartRequired = statusCode === DisconnectReason.restartRequired || statusCode === 515;
+        // DisconnectReason.loggedOut = 401 or 405 (bad session / unregistered / unauthorized)
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 405;
+        // DisconnectReason.forbidden = 403 (banned)
+        const isForbidden = statusCode === DisconnectReason.forbidden || statusCode === 403;
+        // DisconnectReason.connectionReplaced = 440 (another session active)
+        const isReplaced = statusCode === DisconnectReason.connectionReplaced || statusCode === 440;
+
+        if (isRestartRequired) {
+          console.log(`[Engine] Connection restart required (515) for tenant ${tenantId}. Reconnecting immediately...`);
+          scheduleReconnect(tenantId, io, 0);
+          return;
+        }
+
         if (isLoggedOut) {
-          // Fix 5: Wipe auth state completely so next connect starts clean
+          // Terminal logout: wipe auth state completely so next connect starts clean
+          console.warn(`[Engine] Terminal logout (401/405) for tenant ${tenantId}: "${errorMessage}". Wiping authentication state.`);
           qrCodes.delete(tenantId);
           pairingCodes.delete(tenantId);
           reconnectAttempts.delete(tenantId);
@@ -532,54 +618,27 @@ export async function connectTenant(tenantId: string, io: any, phoneNumber?: str
           } catch (err) {
             console.error(`[Engine] Failed to clear auth state for tenant ${tenantId}:`, err);
           }
-          io.to(`tenant_${tenantId}`).emit('whatsapp_status', { status: 'DISCONNECTED' });
+          emitToTenant(tenantId, 'whatsapp_status', { status: 'DISCONNECTED' }, io);
 
         } else if (isForbidden || isReplaced) {
           // Banned or replaced — terminal, do not wipe auth, do not reconnect
-          console.log(`[Engine] Terminal close (${statusCode}) for tenant ${tenantId}. Manual intervention required.`);
+          console.warn(`[Engine] Terminal close (${statusCode}) for tenant ${tenantId}: "${errorMessage}". Manual action required.`);
           try {
             await db.whatsAppNumber.update({ where: { tenantId }, data: { status: 'DISCONNECTED' } }).catch(() => {});
           } catch { /* ignore */ }
-          io.to(`tenant_${tenantId}`).emit('whatsapp_status', { status: 'DISCONNECTED' });
+          emitToTenant(tenantId, 'whatsapp_status', { status: 'DISCONNECTED' }, io);
 
         } else {
-          // Fix 4: Transient drop — schedule reconnect with exponential backoff
+          // Transient network drop (408, 428, 500, 503, etc.) — backoff and reconnect
+          console.log(`[Engine] Transient disconnect (${statusCode || 'unknown'}) for tenant ${tenantId}: "${errorMessage}". Scheduling reconnect.`);
           try {
             await db.whatsAppNumber.update({ where: { tenantId }, data: { status: 'DISCONNECTED' } }).catch(() => {});
           } catch { /* ignore */ }
-          io.to(`tenant_${tenantId}`).emit('whatsapp_status', { status: 'DISCONNECTED' });
+          emitToTenant(tenantId, 'whatsapp_status', { status: 'DISCONNECTED' }, io);
           scheduleReconnect(tenantId, io);
         }
       }
     });
-
-  // Handle message ACK / status updates (Sent -> Delivered -> Read)
-  sock.ev.on('messages.update', async (updates) => {
-    for (const update of updates) {
-      if (update.key?.id && update.update?.status != null) {
-        const msgId = update.key.id;
-        const statusVal = update.update.status;
-        let statusStr: 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' = 'SENT';
-        if (statusVal === 3 || statusVal === 4) statusStr = 'DELIVERED';
-        else if (statusVal === 5) statusStr = 'READ';
-        else if (statusVal === 0 || statusVal === 1) statusStr = 'FAILED';
-
-        try {
-          const db = getTenantPrisma(tenantId, 'ADMIN');
-          const updated = await db.message.updateMany({
-            where: { tenantId, channelMessageId: msgId },
-            data: { status: statusStr },
-          });
-          if (updated.count > 0) {
-            console.log(`[Engine] Message ${msgId} status updated to ${statusStr}`);
-            io.to(`tenant_${tenantId}`).emit('message_status', { channelMessageId: msgId, status: statusStr });
-          }
-        } catch (err) {
-          console.warn(`[Engine] Status update failed for ${msgId}:`, err);
-        }
-      }
-    }
-  });
 
   // Handle inbound messages
   sock.ev.on('messages.upsert', async (m) => {
@@ -745,7 +804,7 @@ export async function connectTenant(tenantId: string, io: any, phoneNumber?: str
         console.log(`[Engine] Successfully saved inbound message ${message.id} for conversation ${conversation.id}`);
 
         // 5. Emit new_message event via Socket.io
-        io.to(`tenant_${tenantId}`).emit('new_message', {
+        emitToTenant(tenantId, 'new_message', {
           conversationId: conversation.id,
           message: {
             id: message.id,
@@ -756,7 +815,7 @@ export async function connectTenant(tenantId: string, io: any, phoneNumber?: str
             messageType: message.messageType,
             status: message.status,
           },
-        });
+        }, io);
 
         // 6. Trigger AI processing if enabled
         if (!norm.fromMe && !isStopMessage && conversation.automationEnabled) {

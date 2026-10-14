@@ -18,6 +18,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing recipient or conversationId.' }, { status: 400 });
     }
 
+    // If running with a dedicated WhatsApp engine service, proxy to it
+    if (process.env.WHATSAPP_ENGINE_URL) {
+      const res = await fetch(`${process.env.WHATSAPP_ENGINE_URL}/api/whatsapp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, to, text, mediaId, mimeType, clientMessageId, conversationId }),
+      });
+      const data = await res.json();
+      return NextResponse.json(data, { status: res.status });
+    }
+
     if (!sessions.has(tenantId)) {
       return NextResponse.json({ error: 'WhatsApp session is not active for this tenant.' }, { status: 400 });
     }

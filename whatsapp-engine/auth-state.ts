@@ -1,9 +1,10 @@
-import { initAuthCreds, BufferJSON, makeCacheableSignalKeyStore } from '@whiskeysockets/baileys';
+import { initAuthCreds, BufferJSON, makeCacheableSignalKeyStore, proto } from '@whiskeysockets/baileys';
 import { getTenantPrisma } from '../lib/db/index';
 import { encrypt, decrypt } from '../lib/encryption';
 import pino from 'pino';
 
 const silentLogger = pino({ level: 'silent' });
+const activeSaveTimers = new Map<string, NodeJS.Timeout>();
 
 /**
  * Custom Baileys authentication state provider that stores credentials in PostgreSQL (Neon)
@@ -26,7 +27,21 @@ export async function getDatabaseAuthState(tenantId: string) {
     try {
       const decrypted = decrypt(session.sessionData);
       const parsed = JSON.parse(decrypted, BufferJSON.reviver);
-      if (parsed && parsed.creds) creds = parsed.creds;
+      if (parsed && parsed.creds) {
+        creds = parsed.creds;
+        // Check: If creds has an incomplete pairing code or unauthenticated me.id,
+        // it was an aborted or incomplete pairing attempt. Loading it causes Baileys to attempt
+        // a bogus login with an unregistered JID, which WhatsApp immediately rejects with 401.
+        if (creds.pairingCode && !creds.registered) {
+          console.warn(`[Auth State] Cleaning up uncompleted pairing code state for tenant ${tenantId}`);
+          creds.me = undefined;
+          creds.pairingCode = undefined;
+        } else if (creds.me && !creds.account && !creds.registered) {
+          console.warn(`[Auth State] Incomplete authentication state (unregistered me) for tenant ${tenantId}, resetting.`);
+          creds = initAuthCreds();
+          keys = {};
+        }
+      }
       if (parsed && parsed.keys) keys = parsed.keys;
     } catch (e) {
       console.warn(`[Auth State] Corrupted sessionData for tenant ${tenantId}, resetting.`);
@@ -35,41 +50,61 @@ export async function getDatabaseAuthState(tenantId: string) {
     }
   }
 
-  let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  const persistStateNow = async () => {
+    const existing = activeSaveTimers.get(tenantId);
+    if (existing) {
+      clearTimeout(existing);
+      activeSaveTimers.delete(tenantId);
+    }
+    try {
+      const serialized = JSON.stringify({ creds, keys }, BufferJSON.replacer);
+      const encrypted = encrypt(serialized);
+      await db.whatsAppNumber.upsert({
+        where: { tenantId },
+        create: { tenantId, sessionData: encrypted, status: creds.me ? 'CONNECTED' : 'QR_PENDING' },
+        update: { sessionData: encrypted },
+      });
+      console.log(`[Auth State] Persisted credentials successfully for tenant ${tenantId} (hasMe: ${!!creds.me})`);
+    } catch (e) {
+      console.error(`[Auth State] Failed to save sessionData for tenant ${tenantId}:`, e);
+    }
+  };
 
-  const saveState = () => {
-    // Debounce: Baileys fires creds.update + key.set() many times per second during
-    // the WS handshake. Without this, every call opens a new Neon transaction and
-    // exhausts the connection pool (P2028). Batch all rapid calls into one write.
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      saveTimer = null;
+  const scheduleSaveState = () => {
+    const existing = activeSaveTimers.get(tenantId);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(async () => {
+      activeSaveTimers.delete(tenantId);
       try {
         const serialized = JSON.stringify({ creds, keys }, BufferJSON.replacer);
         const encrypted = encrypt(serialized);
         await db.whatsAppNumber.upsert({
           where: { tenantId },
-          create: { tenantId, sessionData: encrypted, status: 'QR_PENDING' },
+          create: { tenantId, sessionData: encrypted, status: creds.me ? 'CONNECTED' : 'QR_PENDING' },
           update: { sessionData: encrypted },
         });
       } catch (e) {
         console.error(`[Auth State] Failed to save sessionData for tenant ${tenantId}:`, e);
       }
     }, 300);
+    activeSaveTimers.set(tenantId, timer);
   };
-
 
   // Raw key store backed by the in-memory `keys` map
   const rawKeyStore = {
-    get: (type: string, ids: string[]) => {
+    get: async (type: string, ids: string[]) => {
       const data: Record<string, any> = {};
       for (const id of ids) {
-        const val = keys[`${type}:${id}`];
+        let val = keys[`${type}:${id}`];
+        if (type === 'app-state-sync-key' && val) {
+          val = proto.Message.AppStateSyncKeyData.fromObject(val);
+        }
         if (val) data[id] = val;
       }
       return data;
     },
-    set: (data: any) => {
+    set: async (data: any) => {
       for (const type of Object.keys(data)) {
         for (const id of Object.keys(data[type])) {
           const val = data[type][id];
@@ -80,25 +115,33 @@ export async function getDatabaseAuthState(tenantId: string) {
           }
         }
       }
-      saveState();
+      scheduleSaveState();
     },
   };
 
   return {
     state: {
       creds,
-      // Fix 2: wrap with official caching layer to prevent Signal key race conditions
+      // Wrap with official caching layer to prevent Signal key race conditions
       keys: makeCacheableSignalKeyStore(rawKeyStore, silentLogger as any),
     },
-    saveCreds: () => { saveState(); },
+    saveCreds: async () => {
+      // Save credentials immediately to guarantee persistence before any disconnect/restart
+      await persistStateNow();
+    },
   };
 }
 
 /**
- * Fix 5: Dedicated clear function — wipes all auth data for a tenant.
- * Called on loggedOut (401/405) to guarantee a clean slate for the next connect.
+ * Dedicated clear function — wipes all auth data for a tenant.
+ * Cancels any pending debounced writes to avoid re-inserting stale/cleared state.
  */
 export async function clearDatabaseAuthState(tenantId: string): Promise<void> {
+  const existingTimer = activeSaveTimers.get(tenantId);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    activeSaveTimers.delete(tenantId);
+  }
   const db = getTenantPrisma(tenantId, 'ADMIN');
   await db.whatsAppNumber.upsert({
     where: { tenantId },

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -26,29 +26,41 @@ import {
   BarChart3,
   Check,
   AlertCircle,
-  Megaphone
+  Megaphone,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const FacebookIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+  <svg className={className} viewBox="0 0 24 24" fill="#1877F2">
     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
   </svg>
 );
 
 const InstagramIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <defs>
+      <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#f09433" />
+        <stop offset="25%" stopColor="#e6683c" />
+        <stop offset="50%" stopColor="#dc2743" />
+        <stop offset="75%" stopColor="#cc2366" />
+        <stop offset="100%" stopColor="#bc1888" />
+      </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="url(#ig-grad)" strokeWidth="2" />
+    <circle cx="12" cy="12" r="4" stroke="url(#ig-grad)" strokeWidth="2" />
+    <circle cx="17.5" cy="6.5" r="1" fill="#dc2743" />
   </svg>
 );
 
 const LinkedinIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+  <svg className={className} viewBox="0 0 24 24" fill="#0A66C2">
     <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
   </svg>
 );
 
 const YoutubeIcon = ({ className }: { className?: string }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+  <svg className={className} viewBox="0 0 24 24" fill="#FF0000">
     <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
   </svg>
 );
@@ -72,6 +84,25 @@ function DigitalMarketingSuitePageInner() {
       router.replace('/dashboard/marketing?tab=social-posts');
     }
   }, [searchParams, router]);
+
+  // More dropdown state
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const moreDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close More dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreDropdownRef.current && !moreDropdownRef.current.contains(event.target as Node)) {
+        setIsMoreOpen(false);
+      }
+    };
+    if (isMoreOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMoreOpen]);
 
   // Social Posts sub-tabs: create-post | DRAFT | SCHEDULED | SUCCESS | FAILED
   const [socialPostSubTab, setSocialPostSubTab] = useState<'create-post' | 'DRAFT' | 'SCHEDULED' | 'SUCCESS' | 'FAILED'>('create-post');
@@ -115,7 +146,7 @@ function DigitalMarketingSuitePageInner() {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   // 1. Fetch History Campaigns
-  const { data: historyData, isLoading: historyLoading } = useQuery({
+  const { data: historyData } = useQuery({
     queryKey: ['marketing-campaigns', historyPlatformFilter, historyStatusFilter],
     queryFn: async () => {
       const res = await fetch(`/api/marketing/campaigns?platform=${historyPlatformFilter}&status=${historyStatusFilter}`);
@@ -313,17 +344,17 @@ function DigitalMarketingSuitePageInner() {
   const renderCampaignsTable = (filteredCampaigns: any[]) => {
     if (!filteredCampaigns || filteredCampaigns.length === 0) {
       return (
-        <div className="p-8 text-center text-xs text-gray-500 bg-white border border-[#c3c6d7] rounded-xl">
+        <div className="p-8 text-center text-xs text-gray-500 bg-white border border-gray-200 rounded-2xl shadow-2xs">
           No posts found in this status group. Click &quot;Create Post&quot; to build a new one.
         </div>
       );
     }
 
     return (
-      <div className="bg-white rounded-xl border border-[#c3c6d7] overflow-hidden shadow-sm text-left">
+      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-2xs text-left">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-gray-50 text-gray-600 border-b border-gray-200 font-semibold uppercase tracking-wider">
+            <thead className="bg-gray-50/80 text-gray-500 border-b border-gray-200 font-bold uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="p-4">Post Title</th>
                 <th className="p-4">Platforms</th>
@@ -334,14 +365,14 @@ function DigitalMarketingSuitePageInner() {
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 font-medium">
+            <tbody className="divide-y divide-gray-100 font-medium">
               {filteredCampaigns.map((item: any) => {
                 const isExpanded = expandedAbTestId === item.id;
                 const hasAbVariants = item.abTestVariants && item.abTestVariants.length > 0;
 
                 return (
                   <React.Fragment key={item.id}>
-                    <tr className="hover:bg-gray-50/80 transition">
+                    <tr className="hover:bg-gray-50/60 transition-colors">
                       <td className="p-4 font-bold text-gray-900">
                         <div className="flex items-center gap-2">
                           {hasAbVariants && (
@@ -365,7 +396,7 @@ function DigitalMarketingSuitePageInner() {
                           {item.platforms?.map((p: string) => (
                             <span
                               key={p}
-                              className="px-2 py-0.5 bg-blue-50 text-blue-800 rounded font-semibold text-[10px] uppercase"
+                              className="px-2 py-0.5 bg-blue-50 text-blue-800 rounded-md font-semibold text-[10px] uppercase border border-blue-100"
                             >
                               {p}
                             </span>
@@ -375,11 +406,12 @@ function DigitalMarketingSuitePageInner() {
 
                       <td className="p-4">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-[10px] font-bold border",
                             item.type === 'PAID'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-gray-100 text-gray-700 border-gray-200'
+                          )}
                         >
                           {item.type}
                         </span>
@@ -387,15 +419,16 @@ function DigitalMarketingSuitePageInner() {
 
                       <td className="p-4">
                         <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          className={cn(
+                            "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border",
                             item.status === 'SUCCESS'
-                              ? 'bg-green-100 text-green-800'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : item.status === 'PUBLISHING'
-                              ? 'bg-blue-100 text-blue-800 animate-pulse'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse'
                               : item.status === 'FAILED'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
+                              ? 'bg-red-50 text-red-700 border-red-200'
+                              : 'bg-gray-100 text-gray-700 border-gray-200'
+                          )}
                         >
                           {item.status === 'PUBLISHING' && <RotateCw className="w-3 h-3 animate-spin" />}
                           {item.status === 'SUCCESS' ? 'PUBLISHED' : item.status}
@@ -420,7 +453,7 @@ function DigitalMarketingSuitePageInner() {
                             <button
                               type="button"
                               onClick={() => publishMutation.mutate({ campaignId: item.id, action: 'retry' })}
-                              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold transition flex items-center gap-1"
+                              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-2xs"
                             >
                               <RotateCw className="w-3 h-3" />
                               Retry
@@ -428,7 +461,7 @@ function DigitalMarketingSuitePageInner() {
                           )}
                           <a
                             href={`/dashboard/marketing`}
-                            className="p-1.5 text-gray-500 hover:text-[#004ac6] transition"
+                            className="p-1.5 text-gray-400 hover:text-[#004ac6] transition"
                             title="View Post Details"
                           >
                             <ExternalLink className="w-4 h-4" />
@@ -438,10 +471,10 @@ function DigitalMarketingSuitePageInner() {
                     </tr>
 
                     {isExpanded && hasAbVariants && (
-                      <tr className="bg-blue-50/40">
+                      <tr className="bg-blue-50/30">
                         <td colSpan={7} className="p-4">
-                          <div className="p-4 bg-white rounded-lg border border-blue-200 space-y-3">
-                            <h4 className="text-xs font-bold text-[#1B4B91] uppercase tracking-wider">
+                          <div className="p-4 bg-white rounded-xl border border-blue-200 space-y-3">
+                            <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
                               A/B Test Variant Performance Comparison
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -489,7 +522,7 @@ function DigitalMarketingSuitePageInner() {
     
     // Empty cells at start of month
     for (let i = 0; i < firstDay; i++) {
-      cells.push(<div key={`empty-${i}`} className="min-h-[110px] bg-slate-50/50 border border-slate-100 rounded-lg" />);
+      cells.push(<div key={`empty-${i}`} className="min-h-[110px] bg-gray-50/50 border border-gray-100 rounded-xl" />);
     }
 
     // Days cells
@@ -502,9 +535,9 @@ function DigitalMarketingSuitePageInner() {
       cells.push(
         <div
           key={`day-${d}`}
-          className="min-h-[110px] p-2 bg-white border border-gray-200 rounded-lg hover:shadow-sm transition-shadow flex flex-col justify-between"
+          className="min-h-[110px] p-2.5 bg-white border border-gray-200 rounded-xl hover:shadow-2xs transition-shadow flex flex-col justify-between"
         >
-          <span className="text-xs font-bold text-gray-800 self-end bg-gray-100 px-1.5 py-0.5 rounded">
+          <span className="text-xs font-bold text-gray-800 self-end bg-gray-100 px-1.5 py-0.5 rounded-md">
             {d}
           </span>
           <div className="flex-1 mt-1 space-y-1 overflow-y-auto max-h-[75px] scrollbar-none">
@@ -512,15 +545,16 @@ function DigitalMarketingSuitePageInner() {
               <div
                 key={c.id}
                 title={`${c.name} (${c.status})`}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-bold truncate border ${
+                className={cn(
+                  "px-1.5 py-0.5 rounded text-[9px] font-bold truncate border",
                   c.status === 'SUCCESS'
-                    ? 'bg-green-50 border-green-200 text-green-800'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                     : c.status === 'SCHEDULED'
                     ? 'bg-blue-50 border-blue-200 text-blue-800'
                     : c.status === 'FAILED'
                     ? 'bg-red-50 border-red-200 text-red-800'
-                    : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}
+                    : 'bg-gray-50 border-gray-200 text-gray-700'
+                )}
               >
                 {c.name}
               </div>
@@ -531,16 +565,17 @@ function DigitalMarketingSuitePageInner() {
     }
 
     return (
-      <div className="bg-white rounded-xl border border-[#c3c6d7] p-6 shadow-sm space-y-4 text-left font-sans">
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-2xs space-y-4 text-left font-sans">
         <div className="flex items-center justify-between border-b border-gray-100 pb-4">
           <div className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#004ac6]" />
-            <h2 className="text-lg font-bold text-[#1B4B91]">Social Posting Calendar</h2>
+            <h2 className="text-base font-bold text-gray-900">Social Posting Calendar</h2>
           </div>
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={prevMonth}
-              className="p-1.5 hover:bg-slate-100 rounded-full border border-gray-200 text-gray-600 transition"
+              className="p-1.5 hover:bg-gray-100 rounded-lg border border-gray-200 text-gray-600 transition"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -548,8 +583,9 @@ function DigitalMarketingSuitePageInner() {
               {monthNames[month]} {year}
             </span>
             <button
+              type="button"
               onClick={nextMonth}
-              className="p-1.5 hover:bg-slate-100 rounded-full border border-gray-200 text-gray-600 transition"
+              className="p-1.5 hover:bg-gray-100 rounded-lg border border-gray-200 text-gray-600 transition"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -600,45 +636,45 @@ function DigitalMarketingSuitePageInner() {
     return (
       <div className="space-y-6 text-left font-sans">
         {/* Metric Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-5 bg-white rounded-xl border border-[#c3c6d7] shadow-sm flex items-center justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-5 bg-white rounded-2xl border border-gray-200 shadow-2xs flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Cumulative Post Reach</span>
-              <span className="text-2xl font-extrabold text-[#1c1b1f] mt-1 block">{totalReach.toLocaleString()}</span>
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">Cumulative Post Reach</span>
+              <span className="text-2xl font-bold text-gray-900 mt-1 block">{totalReach.toLocaleString()}</span>
             </div>
-            <div className="p-2.5 bg-blue-50 text-blue-700 rounded-xl border border-blue-100">
-              <TrendingUp className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="p-5 bg-white rounded-xl border border-[#c3c6d7] shadow-sm flex items-center justify-between">
+          <div className="p-5 bg-white rounded-2xl border border-gray-200 shadow-2xs flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Target CTR Prediction</span>
-              <span className="text-2xl font-extrabold text-[#1c1b1f] mt-1 block">{averageCtr}%</span>
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">Target CTR Prediction</span>
+              <span className="text-2xl font-bold text-gray-900 mt-1 block">{averageCtr}%</span>
             </div>
-            <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100">
-              <Sparkles className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5" />
             </div>
           </div>
 
-          <div className="p-5 bg-white rounded-xl border border-[#c3c6d7] shadow-sm flex items-center justify-between">
+          <div className="p-5 bg-white rounded-2xl border border-gray-200 shadow-2xs flex items-center justify-between">
             <div>
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Total Spent (Paid Ads)</span>
-              <span className="text-2xl font-extrabold text-[#1c1b1f] mt-1 block">${totalBudget.toLocaleString()}</span>
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">Total Spent (Paid Ads)</span>
+              <span className="text-2xl font-bold text-gray-900 mt-1 block">${totalBudget.toLocaleString()}</span>
             </div>
-            <div className="p-2.5 bg-purple-50 text-purple-700 rounded-xl border border-purple-100">
-              <DollarSign className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+              <DollarSign className="w-5 h-5" />
             </div>
           </div>
         </div>
 
         {/* Charts & Trends panel */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Trend chart */}
-          <div className="p-5 bg-white rounded-xl border border-[#c3c6d7] shadow-sm space-y-4">
-            <h3 className="text-xs font-bold text-[#1B4B91] uppercase tracking-wider flex items-center gap-2">
+          <div className="p-5 bg-white rounded-2xl border border-gray-200 shadow-2xs space-y-4">
+            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#004ac6]" />
-              Social Post Reach Analytics
+              <span>Social Post Reach Analytics</span>
             </h3>
             {reachData.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-xs text-gray-500">
@@ -671,10 +707,10 @@ function DigitalMarketingSuitePageInner() {
           </div>
 
           {/* Social split chart */}
-          <div className="p-5 bg-white rounded-xl border border-[#c3c6d7] shadow-sm space-y-4">
-            <h3 className="text-xs font-bold text-[#1B4B91] uppercase tracking-wider flex items-center gap-2">
+          <div className="p-5 bg-white rounded-2xl border border-gray-200 shadow-2xs space-y-4">
+            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-[#004ac6]" />
-              Platform Share Split Distribution
+              <span>Platform Share Split Distribution</span>
             </h3>
             <div className="h-48 flex flex-col justify-center space-y-3">
               {['facebook', 'instagram', 'linkedin', 'youtube'].map((p) => {
@@ -690,7 +726,7 @@ function DigitalMarketingSuitePageInner() {
                     <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         style={{ width: `${percentage}%` }}
-                        className="h-full bg-blue-800 rounded-full transition-all"
+                        className="h-full bg-blue-700 rounded-full transition-all"
                       />
                     </div>
                   </div>
@@ -701,11 +737,11 @@ function DigitalMarketingSuitePageInner() {
         </div>
 
         {/* Granular campaign logs table */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-[#1B4B91] uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#004ac6]" />
-              Detailed Post History Log
+              <span>Detailed Post History Log</span>
             </h3>
           </div>
           {renderCampaignsTable(list)}
@@ -715,52 +751,119 @@ function DigitalMarketingSuitePageInner() {
   };
 
   return (
-    <div className="space-y-6 font-sans text-left">
-      {/* Header Info */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#c3c6d7]/40 pb-5">
+    <div className="flex-1 flex flex-col min-w-0 font-sans text-gray-900 space-y-6 pb-12">
+      {/* 1. Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         <div>
-          <h1 className="text-2xl font-bold text-[#1B4B91] tracking-tight flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#004ac6]">ads_click</span>
-            Digital Marketing Suite
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2.5">
+            <Megaphone className="h-6 w-6 text-[#004ac6] shrink-0 stroke-[1.75]" />
+            <span>Digital Marketing Suite</span>
           </h1>
           <p className="text-xs text-gray-500 mt-1">
             Compose and target healthcare posts, perform AI compliance preflight audits, and track unified social analytics.
           </p>
         </div>
+
+        {/* Top-Right More Dropdown */}
+        <div className="relative shrink-0" ref={moreDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsMoreOpen((prev) => !prev)}
+            className="border border-blue-400 bg-white hover:bg-blue-50/50 text-blue-600 font-semibold text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+          >
+            <span>More</span>
+            {isMoreOpen ? (
+              <ChevronUp className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {isMoreOpen && (
+            <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-lg border border-gray-100 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('calendar');
+                  setIsMoreOpen(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-left transition-colors cursor-pointer",
+                  activeTab === 'calendar' ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                )}
+              >
+                <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>Calendar</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('integrations');
+                  setIsMoreOpen(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-left transition-colors cursor-pointer",
+                  activeTab === 'integrations' ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                )}
+              >
+                <Layers className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>Integrations</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('analytics');
+                  setIsMoreOpen(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg text-left transition-colors cursor-pointer",
+                  activeTab === 'analytics' ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                )}
+              >
+                <BarChart3 className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>History & Analytics</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Primary Tab Navigation */}
-      <div className="flex items-center gap-1 border-b border-[#c3c6d7] overflow-x-auto pb-px">
-        {[
-          { id: 'social-posts' as const, label: 'Social Posts', icon: Megaphone },
-          { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
-          { id: 'integrations' as const, label: 'Integrations', icon: Layers },
-          { id: 'analytics' as const, label: 'History & Analytics', icon: BarChart3 },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-3 text-xs font-bold whitespace-nowrap transition border-b-2 ${
-                isActive
-                  ? 'border-[#004ac6] text-[#004ac6] bg-blue-50/50'
-                  : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-slate-50'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-[#004ac6]' : 'text-gray-400'}`} />
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* 2. Primary Navigation (Social Posts) */}
+      <div className="border-b border-gray-200">
+        <div className="flex items-center gap-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('social-posts')}
+            className={cn(
+              "flex items-center gap-2 pb-3 text-xs font-bold transition border-b-2 cursor-pointer",
+              activeTab === 'social-posts'
+                ? "border-[#004ac6] text-[#004ac6]"
+                : "border-transparent text-gray-500 hover:text-gray-900"
+            )}
+          >
+            <Megaphone className="w-4 h-4 stroke-[1.75]" />
+            <span>Social Posts</span>
+          </button>
+          {activeTab !== 'social-posts' && (
+            <span className="flex items-center gap-2 pb-3 text-xs font-bold border-b-2 border-[#004ac6] text-[#004ac6]">
+              {activeTab === 'calendar' && <Calendar className="w-4 h-4" />}
+              {activeTab === 'integrations' && <Layers className="w-4 h-4" />}
+              {activeTab === 'analytics' && <BarChart3 className="w-4 h-4" />}
+              <span>
+                {activeTab === 'calendar' ? 'Calendar' : activeTab === 'integrations' ? 'Integrations' : 'History & Analytics'}
+              </span>
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* TAB 1: SOCIAL POSTS HUB */}
+      {/* TAB 1: SOCIAL POSTS */}
       {activeTab === 'social-posts' && (
         <div className="space-y-6">
-          {/* Sub-tabs bar */}
-          <div className="flex items-center gap-1 border-b border-gray-200 pb-px overflow-x-auto">
+          {/* Sub-tabs: Create Post, Drafts, Scheduled, Published, Failed */}
+          <div className="flex items-center gap-6 sm:gap-8 border-b border-gray-100 overflow-x-auto">
             {[
               { id: 'create-post' as const, label: 'Create Post' },
               { id: 'DRAFT' as const, label: 'Drafts' },
@@ -770,12 +873,14 @@ function DigitalMarketingSuitePageInner() {
             ].map((sub) => (
               <button
                 key={sub.id}
+                type="button"
                 onClick={() => setSocialPostSubTab(sub.id)}
-                className={`px-4 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition ${
+                className={cn(
+                  "pb-2.5 text-xs whitespace-nowrap transition border-b-2 cursor-pointer",
                   socialPostSubTab === sub.id
-                    ? 'border-[#004ac6] text-[#004ac6]'
-                    : 'border-transparent text-gray-500 hover:text-gray-900'
-                }`}
+                    ? "border-[#004ac6] text-[#004ac6] font-bold"
+                    : "border-transparent text-gray-500 hover:text-gray-900 font-medium"
+                )}
               >
                 {sub.label}
               </button>
@@ -784,46 +889,49 @@ function DigitalMarketingSuitePageInner() {
 
           {socialPostSubTab === 'create-post' ? (
             <div className="space-y-6">
-              <div className="bg-white rounded-xl border border-[#c3c6d7] p-6 shadow-sm space-y-6">
-                {/* Post Name */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-2">
-                      Post / Campaign Title *
+              {/* Main Cohesive Form Card */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-7 shadow-2xs space-y-6">
+                {/* 1. Post Title & Campaign Type */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block">
+                      POST / CAMPAIGN TITLE <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       placeholder="e.g. Q3 Health Plan Enrollment Social Post"
                       value={campaignName}
                       onChange={(e) => setCampaignName(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-xs focus:bg-white focus:border-[#004ac6] outline-none transition"
+                      className="w-full px-3.5 py-2.5 bg-gray-50/60 border border-gray-200 rounded-xl text-xs text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-100 transition"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-2">
-                      Campaign Type
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block">
+                      CAMPAIGN TYPE
                     </label>
-                    <div className="grid grid-cols-2 p-1 bg-gray-100 rounded-lg border border-gray-200">
+                    <div className="grid grid-cols-2 p-1 bg-gray-100/80 rounded-xl border border-gray-200/80">
                       <button
                         type="button"
                         onClick={() => setCampaignType('ORGANIC')}
-                        className={`py-1.5 text-[11px] font-semibold rounded-md transition ${
+                        className={cn(
+                          "py-1.5 text-xs font-semibold rounded-lg transition text-center cursor-pointer",
                           campaignType === 'ORGANIC'
-                            ? 'bg-white text-[#1B4B91] shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
+                            ? "bg-white text-blue-600 shadow-2xs border border-gray-200/60"
+                            : "text-gray-500 hover:text-gray-900"
+                        )}
                       >
                         Organic Post
                       </button>
                       <button
                         type="button"
                         onClick={() => setCampaignType('PAID')}
-                        className={`py-1.5 text-[11px] font-semibold rounded-md transition ${
+                        className={cn(
+                          "py-1.5 text-xs font-semibold rounded-lg transition text-center cursor-pointer",
                           campaignType === 'PAID'
-                            ? 'bg-[#1B4B91] text-white shadow-sm'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
+                            ? "bg-white text-blue-600 shadow-2xs border border-gray-200/60"
+                            : "text-gray-500 hover:text-gray-900"
+                        )}
                       >
                         Paid Ad
                       </button>
@@ -831,17 +939,17 @@ function DigitalMarketingSuitePageInner() {
                   </div>
                 </div>
 
-                {/* Platforms Row */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-2">
-                    Target Social Platforms (Multi-Select)
+                {/* 2. Target Social Platforms */}
+                <div className="space-y-2.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block">
+                    TARGET SOCIAL PLATFORMS (MULTI-SELECT)
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
                     {[
-                      { id: 'facebook', name: 'Facebook', icon: FacebookIcon, color: 'text-blue-600' },
-                      { id: 'instagram', name: 'Instagram', icon: InstagramIcon, color: 'text-pink-600' },
-                      { id: 'linkedin', name: 'LinkedIn', icon: LinkedinIcon, color: 'text-blue-700' },
-                      { id: 'youtube', name: 'YouTube', icon: YoutubeIcon, color: 'text-red-600' },
+                      { id: 'facebook', name: 'Facebook', icon: FacebookIcon },
+                      { id: 'instagram', name: 'Instagram', icon: InstagramIcon },
+                      { id: 'linkedin', name: 'LinkedIn', icon: LinkedinIcon },
+                      { id: 'youtube', name: 'YouTube', icon: YoutubeIcon },
                     ].map((item) => {
                       const isSelected = selectedPlatforms.includes(item.id);
                       const Icon = item.icon;
@@ -850,77 +958,82 @@ function DigitalMarketingSuitePageInner() {
                           key={item.id}
                           type="button"
                           onClick={() => togglePlatform(item.id)}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-xs font-semibold transition ${
+                          className={cn(
+                            "flex items-center gap-3 px-4 py-3 rounded-xl border text-xs font-semibold transition cursor-pointer",
                             isSelected
-                              ? 'border-[#004ac6] bg-[#004ac6]/10 text-[#004ac6] ring-1 ring-[#004ac6]'
-                              : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
-                          }`}
+                              ? "border-blue-400 bg-blue-50/30 text-gray-900 shadow-2xs"
+                              : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50/60"
+                          )}
                         >
-                          <Icon className={`w-5 h-5 ${item.color}`} />
-                          <span>{item.name}</span>
-                          {isSelected && <CheckCircle2 className="w-4 h-4 text-[#004ac6] ml-auto" />}
+                          <Icon className="w-5 h-5 shrink-0" />
+                          <span className="font-semibold text-gray-900">{item.name}</span>
+                          {isSelected && (
+                            <CheckCircle2 className="w-4 h-4 text-blue-600 ml-auto shrink-0" />
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Upload File */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-2">
-                    Post Media & Creative Assets
+                {/* 3. Post Media & Creative Assets */}
+                <div className="space-y-2.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block">
+                    POST MEDIA & CREATIVE ASSETS
                   </label>
-                  <label className="border-2 border-dashed border-gray-300 hover:border-[#1B4B91] bg-gray-50/50 hover:bg-gray-50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition text-center group">
+                  <label className="border-2 border-dashed border-gray-200 hover:border-gray-300 bg-gray-50/30 hover:bg-gray-50/60 rounded-2xl p-7 flex flex-col items-center justify-center cursor-pointer transition text-center group">
                     <input
                       type="file"
                       accept="image/*,video/*"
                       onChange={(e) => e.target.files?.[0] && handleMediaUpload(e.target.files[0])}
                       className="hidden"
                     />
-                    <Upload className="w-8 h-8 text-gray-400 group-hover:text-[#1B4B91] mb-2 transition" />
-                    <p className="text-xs font-medium text-gray-700">
+                    <Upload className="w-6 h-6 text-gray-400 group-hover:text-gray-600 mb-2 transition" />
+                    <p className="text-xs font-semibold text-gray-800">
                       Drag and drop campaign images, videos, or reels here
                     </p>
-                    <p className="text-[10px] text-gray-500 mt-1">Supports PNG, JPG, MP4, MOV (Max 50MB)</p>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Supports PNG, JPG, MP4, MOV (Max 50MB)
+                    </p>
                   </label>
 
                   {mediaFileName && (
-                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between text-xs text-blue-900 font-medium">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between text-xs text-blue-900 font-medium">
                       <span className="truncate">Attached: {mediaFileName}</span>
                       <span className="text-[#004ac6] font-semibold">Ready for Upload</span>
                     </div>
                   )}
                 </div>
 
-                {/* Caption text */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
-                      Caption & Copy Writer
+                {/* 4. Caption & Copy Writer */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block">
+                      CAPTION & COPY WRITER
                     </label>
                     <button
                       type="button"
                       onClick={handleAiOptimize}
                       disabled={isOptimizing || !caption.trim()}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#004ac6] hover:bg-[#003da3] text-white text-[10px] font-semibold rounded-md shadow-sm disabled:opacity-50 transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-xl shadow-2xs disabled:opacity-50 transition cursor-pointer"
                     >
-                      <Sparkles className={`w-3.5 h-3.5 ${isOptimizing ? 'animate-spin' : ''}`} />
-                      {isOptimizing ? 'Rewriting with AI...' : 'AI Optimize Copy'}
+                      <Sparkles className={cn("w-3.5 h-3.5", isOptimizing && "animate-spin")} />
+                      <span>{isOptimizing ? 'Rewriting with AI...' : 'AI Optimize Copy'}</span>
                     </button>
                   </div>
                   <textarea
-                    rows={5}
+                    rows={4}
                     placeholder="Write your campaign caption or promotional message here..."
                     value={caption}
                     onChange={(e) => {
                       setCaption(e.target.value);
                       setAuditData(null);
                     }}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-xs focus:bg-white focus:border-[#004ac6] outline-none transition"
+                    className="w-full px-3.5 py-2.5 bg-gray-50/60 border border-gray-200 rounded-xl text-xs text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-100 transition resize-y"
                   />
                 </div>
 
-                {/* Paid Options */}
+                {/* Paid Options (if campaignType === 'PAID') */}
                 {campaignType === 'PAID' && (
                   <div className="p-5 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 rounded-xl border border-blue-200 space-y-4">
                     <h3 className="text-xs font-bold text-[#1B4B91] flex items-center gap-2">
@@ -1017,21 +1130,21 @@ function DigitalMarketingSuitePageInner() {
                     type="button"
                     onClick={handleRunAudit}
                     disabled={isAuditing}
-                    className="w-full py-3 bg-[#1B4B91] hover:bg-[#14376c] text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition cursor-pointer"
+                    className="w-full py-3 bg-[#004ac6] hover:bg-[#003cb0] text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 transition cursor-pointer"
                   >
-                    <ShieldCheck className={`w-4 h-4 ${isAuditing ? 'animate-spin' : ''}`} />
-                    {isAuditing ? 'Running Healthcare & Insurance Compliance Audit...' : 'Run AI Pre-Flight Audit'}
+                    <ShieldCheck className={cn("w-4 h-4", isAuditing && "animate-spin")} />
+                    <span>{isAuditing ? 'Running Healthcare & Insurance Compliance Audit...' : 'Run AI Pre-Flight Audit'}</span>
                   </button>
                 )}
               </div>
 
-              {/* Audit results */}
+              {/* Audit Results Report (if auditData exists) */}
               {auditData && (
-                <div className="bg-white rounded-xl border border-[#c3c6d7] p-6 shadow-sm space-y-6 text-left">
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-2xs space-y-6 text-left">
                   <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                    <h3 className="text-sm font-bold text-[#1B4B91] flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                       <ShieldCheck className="w-5 h-5 text-[#004ac6]" />
-                      AI Pre-Flight Compliance Audit Report
+                      <span>AI Pre-Flight Compliance Audit Report</span>
                     </h3>
                   </div>
 
@@ -1041,7 +1154,7 @@ function DigitalMarketingSuitePageInner() {
                         Compliance Score
                       </span>
                       <div className="relative w-20 h-20 flex items-center justify-center rounded-full border-4 border-[#004ac6] bg-white shadow-inner">
-                        <span className="text-2xl font-extrabold text-[#1B4B91]">{auditData.complianceScore}</span>
+                        <span className="text-2xl font-extrabold text-gray-900">{auditData.complianceScore}</span>
                         <span className="text-[10px] text-gray-400 font-bold font-mono">/100</span>
                       </div>
                     </div>
@@ -1052,11 +1165,12 @@ function DigitalMarketingSuitePageInner() {
                           CTR Prediction:
                         </span>
                         <span
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold ${
+                          className={cn(
+                            "px-3 py-1 rounded-full text-[10px] font-bold border",
                             auditData.ctrPrediction === 'HIGH'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
+                              ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                              : "bg-amber-50 text-amber-800 border-amber-200"
+                          )}
                         >
                           {auditData.ctrPrediction} CTR EXPECTED
                         </span>
@@ -1070,7 +1184,7 @@ function DigitalMarketingSuitePageInner() {
                           {auditData.checklist.map((item, idx) => (
                             <div key={idx} className="flex items-center gap-2 text-xs font-semibold text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-200">
                               {item.pass ? (
-                                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                               ) : (
                                 <XCircle className="w-4 h-4 text-red-600 shrink-0" />
                               )}
@@ -1083,46 +1197,47 @@ function DigitalMarketingSuitePageInner() {
                   </div>
 
                   <div
-                    className={`p-4 rounded-xl text-center font-extrabold text-sm flex items-center justify-center gap-3 ${
+                    className={cn(
+                      "p-4 rounded-xl text-center font-extrabold text-xs flex items-center justify-center gap-3",
                       auditData.auditResult === 'PASS'
-                        ? 'bg-green-600 text-white'
-                        : 'bg-red-600 text-white'
-                    }`}
+                        ? "bg-emerald-600 text-white"
+                        : "bg-red-600 text-white"
+                    )}
                   >
                     <span>PRE-FLIGHT AUDIT VERDICT: {auditData.auditResult}</span>
                   </div>
                 </div>
               )}
 
-              {/* Actions panel */}
-              <div className="bg-white rounded-xl border border-[#c3c6d7] p-4 flex items-center justify-between gap-4">
+              {/* Bottom Action Footer */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
                 <button
                   type="button"
                   onClick={() => handleSaveCampaign('DRAFT')}
-                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-lg transition flex items-center gap-2"
+                  className="px-4 py-2.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-semibold rounded-xl shadow-2xs transition flex items-center gap-2 cursor-pointer w-fit"
                 >
-                  <Save className="w-4 h-4" />
-                  Save Post as Draft
+                  <Save className="w-4 h-4 text-gray-500" />
+                  <span>Save Post as Draft</span>
                 </button>
 
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => setShowScheduleModal(true)}
-                    className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-lg transition flex items-center gap-2"
+                    className="px-4 py-2.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-semibold rounded-xl shadow-2xs transition flex items-center gap-2 cursor-pointer"
                   >
-                    <Calendar className="w-4 h-4" />
-                    Schedule Post
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <span>Schedule Post</span>
                   </button>
 
                   <button
                     type="button"
                     disabled={publishMutation.isPending}
                     onClick={() => handleSaveCampaign('PENDING')}
-                    className="px-6 py-2.5 bg-[#004ac6] hover:bg-[#003da3] text-white text-xs font-bold rounded-lg shadow-md disabled:opacity-40 transition flex items-center gap-2 cursor-pointer"
+                    className="px-5 py-2.5 bg-[#004ac6] hover:bg-[#003cb0] text-white text-xs font-semibold rounded-xl shadow-xs disabled:opacity-40 transition flex items-center gap-2 cursor-pointer"
                   >
                     <Send className="w-4 h-4" />
-                    {publishMutation.isPending ? 'Publishing...' : 'Publish Post Now'}
+                    <span>{publishMutation.isPending ? 'Publishing...' : 'Publish Post Now'}</span>
                   </button>
                 </div>
               </div>
@@ -1149,16 +1264,16 @@ function DigitalMarketingSuitePageInner() {
       {/* TAB 3: INTEGRATIONS HUB */}
       {activeTab === 'integrations' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-[#c3c6d7] p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-[#1B4B91] mb-2">Connected Marketing & Ad Platforms</h2>
-            <p className="text-xs text-gray-600 mb-6">
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-2xs">
+            <h2 className="text-base font-bold text-gray-900 mb-1">Connected Marketing & Ad Platforms</h2>
+            <p className="text-xs text-gray-500 mb-6">
               Connect official agency accounts to enable auto-posting campaigns and visual analytics aggregation.
             </p>
 
             {integrationsLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-32 bg-gray-100 animate-pulse rounded-xl" />
+                  <div key={i} className="h-32 bg-gray-100 animate-pulse rounded-2xl" />
                 ))}
               </div>
             ) : (
@@ -1169,35 +1284,30 @@ function DigitalMarketingSuitePageInner() {
                     title: 'Facebook Page',
                     desc: 'Publish posts & healthcare promo campaigns',
                     icon: FacebookIcon,
-                    color: 'text-blue-600',
                   },
                   {
                     platform: 'INSTAGRAM',
                     title: 'Instagram Business',
                     desc: 'Share image carousels & video reels',
                     icon: InstagramIcon,
-                    color: 'text-pink-600',
                   },
                   {
                     platform: 'LINKEDIN',
                     title: 'LinkedIn Profile/Company',
                     desc: 'B2B small business group health posts',
                     icon: LinkedinIcon,
-                    color: 'text-blue-700',
                   },
                   {
                     platform: 'YOUTUBE',
                     title: 'YouTube Channel',
                     desc: 'Publish video guides & plan explainer shorts',
                     icon: YoutubeIcon,
-                    color: 'text-red-600',
                   },
                   {
                     platform: 'META_ADS',
                     title: 'Meta Ads Manager',
                     desc: 'Run paid Facebook & Instagram ad campaigns',
                     icon: Sliders,
-                    color: 'text-purple-600',
                   },
                 ].map((item) => {
                   const conn = integrationsData?.connections?.find(
@@ -1209,19 +1319,20 @@ function DigitalMarketingSuitePageInner() {
                   return (
                     <div
                       key={item.platform}
-                      className="p-5 rounded-xl border border-gray-200 bg-gray-50/50 hover:bg-gray-50 transition flex flex-col justify-between"
+                      className="p-5 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50/50 shadow-2xs transition flex flex-col justify-between"
                     >
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <div className="p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
-                            <Icon className={`w-6 h-6 ${item.color}`} />
+                          <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 shadow-2xs">
+                            <Icon className="w-5 h-5" />
                           </div>
                           <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            className={cn(
+                              "px-2.5 py-1 rounded-full text-[10px] font-bold border",
                               isConnected
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-200 text-gray-700'
-                            }`}
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : "bg-gray-100 text-gray-700 border-gray-200"
+                            )}
                           >
                             {isConnected ? 'Connected' : 'Not Connected'}
                           </span>
@@ -1231,13 +1342,13 @@ function DigitalMarketingSuitePageInner() {
                         <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
 
                         {isConnected && conn?.accountName && (
-                          <div className="mt-3 p-2 bg-white rounded-md border border-gray-200 text-xs font-medium text-gray-700 truncate">
+                          <div className="mt-3 p-2 bg-gray-50 rounded-lg border border-gray-200 text-xs font-medium text-gray-700 truncate">
                             Account: <span className="font-semibold text-gray-900">{conn.accountName}</span>
                           </div>
                         )}
                       </div>
 
-                      <div className="mt-5 pt-3 border-t border-gray-200 flex items-center justify-between">
+                      <div className="mt-5 pt-3 border-t border-gray-100 flex items-center justify-between">
                         {isConnected ? (
                           <button
                             type="button"
@@ -1247,7 +1358,7 @@ function DigitalMarketingSuitePageInner() {
                                 action: 'DISCONNECT',
                               })
                             }
-                            className="text-xs font-semibold text-red-600 hover:text-red-800 transition"
+                            className="text-xs font-semibold text-red-600 hover:text-red-800 transition cursor-pointer"
                           >
                             Disconnect
                           </button>
@@ -1260,7 +1371,7 @@ function DigitalMarketingSuitePageInner() {
                                 action: 'CONNECT',
                               })
                             }
-                            className="w-full py-2 bg-[#1B4B91] hover:bg-[#14376c] text-white text-xs font-bold rounded-lg transition"
+                            className="w-full py-2 bg-[#004ac6] hover:bg-[#003cb0] text-white text-xs font-bold rounded-xl transition shadow-2xs cursor-pointer"
                           >
                             Connect Account
                           </button>
@@ -1284,31 +1395,33 @@ function DigitalMarketingSuitePageInner() {
 
       {/* SCHEDULE DATE/TIME MODAL */}
       {showScheduleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl border border-[#c3c6d7] max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-[#1B4B91] flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-gray-200 max-w-md w-full p-6 space-y-4 shadow-xl">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
               <Calendar className="w-5 h-5 text-[#004ac6]" />
-              Schedule Post Release
+              <span>Schedule Post Release</span>
             </h3>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-gray-500">
               Select the date and time when this pre-audited post should automatically publish.
             </p>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Date and Time</label>
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1">
+                Date and Time
+              </label>
               <input
                 type="datetime-local"
                 value={scheduleDateTime}
                 onChange={(e) => setScheduleDateTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs outline-none focus:border-[#004ac6]"
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-[#004ac6] focus:ring-1 focus:ring-blue-100"
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <div className="flex justify-end gap-2.5 pt-4 border-t border-gray-100">
               <button
                 type="button"
                 onClick={() => setShowScheduleModal(false)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold rounded-lg"
+                className="px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -1316,7 +1429,7 @@ function DigitalMarketingSuitePageInner() {
                 type="button"
                 disabled={!scheduleDateTime}
                 onClick={() => handleSaveCampaign('SCHEDULED')}
-                className="px-4 py-2 bg-[#004ac6] hover:bg-[#003da3] text-white text-xs font-bold rounded-lg shadow-sm disabled:opacity-50"
+                className="px-4 py-2 bg-[#004ac6] hover:bg-[#003cb0] text-white text-xs font-semibold rounded-xl shadow-xs disabled:opacity-50 transition cursor-pointer"
               >
                 Confirm Schedule
               </button>

@@ -34,9 +34,8 @@ export default function AdminCommandBar({ userRole = 'ADMIN', tenantName }: Admi
               {tenantName || 'Agency Control'}
             </span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight flex items-center gap-2">
+          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
             Quick Actions & Operations
-            <Sparkles className="w-4 h-4 text-amber-300" />
           </h2>
           <p className="text-xs text-blue-100/80 max-w-xl">
             Execute key agency operations instantly. Launch marketing campaigns, manage WhatsApp sockets, or assign leads.

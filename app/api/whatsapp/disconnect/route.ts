@@ -12,6 +12,17 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized: No active tenant context.' }, { status: 401 });
     }
 
+    // If running with a dedicated WhatsApp engine service, proxy to it
+    if (process.env.WHATSAPP_ENGINE_URL) {
+      const res = await fetch(`${process.env.WHATSAPP_ENGINE_URL}/api/whatsapp/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId }),
+      });
+      const data = await res.json();
+      return NextResponse.json(data, { status: res.status });
+    }
+
     const sock = sessions.get(tenantId);
     if (sock) {
       try {

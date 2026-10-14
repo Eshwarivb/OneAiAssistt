@@ -6,11 +6,12 @@ import cors from 'cors';
 import qrcode from 'qrcode';
 import { getTenantPrisma, prisma } from '../lib/db/index';
 import { decrypt } from '../lib/encryption';
-import { connectTenant, sessions, qrCodes, pairingCodes, startInboundJobWorker } from './engine-logic';
+import { connectTenant, sessions, qrCodes, pairingCodes, startInboundJobWorker, setEngineIO } from './engine-logic';
 import { connectTenantOpenWA, openwaSessions, openwaQrCodes } from './openwa-logic';
 import { MessageService } from './MessageService';
 import { TransportManager } from './transport/TransportManager';
 import { enqueueInboundJob } from './agents/IngressService';
+import { setSocketIO } from '../lib/socket-server';
 
 const app = express();
 app.use(cors());
@@ -33,6 +34,8 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
   },
 });
+setSocketIO(io);
+setEngineIO(io);
 
 // Socket.io connection pipeline
 io.on('connection', (socket) => {

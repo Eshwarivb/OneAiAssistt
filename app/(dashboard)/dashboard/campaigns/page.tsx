@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SearchableTagSelect } from '@/components/ui/searchable-tag-select';
 import { useTenantInfo } from '@/hooks/useTenantInfo';
 import { getClientSocket } from '@/lib/socket-client';
+import { cn } from '@/lib/utils';
 
 type TemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
 type TemplateStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -177,7 +178,6 @@ export default function BroadcastCenterPage() {
       queryClient.invalidateQueries({ queryKey: ['templates'] });
       setSelectedTemplateId(data.id);
       setIsTemplateModalOpen(false);
-      // Reset form fields
       setTemplateName('');
       setTemplateBody('Hello {{name}},\n\nYour policy number {{policy_number}} is due for renewal.\n\nBest regards,\nApex Assurance');
       setTemplateHeader('POLICY UPDATE');
@@ -269,10 +269,8 @@ export default function BroadcastCenterPage() {
     });
   };
 
-  // Find active template for preview rendering
   const activeTemplate = templates.find((t) => t.id === selectedTemplateId);
 
-  // Clickable personalization chip helper
   const handleInsertVariable = (variable: string) => {
     if (isTemplateModalOpen && templateBodyRef.current) {
       const textarea = templateBodyRef.current;
@@ -282,18 +280,15 @@ export default function BroadcastCenterPage() {
       const newValue = templateBody.substring(0, startPos) + placeholder + templateBody.substring(endPos);
       setTemplateBody(newValue);
       
-      // Refocus textarea and place cursor after inserted text
       setTimeout(() => {
         textarea.focus();
         textarea.setSelectionRange(startPos + placeholder.length, startPos + placeholder.length);
       }, 50);
     } else {
-      // Micro-interaction highlight if not in modal
-      showNotification('success', `Clicked chip: Variable {{${variable}}} will map to target user's records.`);
+      showNotification('success', `Variable {{${variable}}} will map dynamically to contact records.`);
     }
   };
 
-  // Helper to split body text and highlight variable placeholders
   const renderHighlightedBody = (bodyText: string) => {
     const parts = bodyText.split(/(\{\{[a-zA-Z0-9_-]+\}\})/g);
     return parts.map((part, index) => {
@@ -309,8 +304,8 @@ export default function BroadcastCenterPage() {
         return (
           <span 
             key={index} 
-            className="bg-[#004ac6]/15 text-[#004ac6] font-bold px-1.5 py-0.5 rounded border border-[#004ac6]/10 text-[11px] inline-block hover:scale-105 transition-transform cursor-help"
-            title={`Placeholder: {{${varKey}}}`}
+            className="bg-blue-100 text-blue-700 font-bold px-1.5 py-0.5 rounded text-[11px] inline-block mx-0.5"
+            title={`Variable: {{${varKey}}}`}
           >
             {displayValue}
           </span>
@@ -320,7 +315,6 @@ export default function BroadcastCenterPage() {
     });
   };
 
-  // Deterministic date/time formatting to prevent SSR hydration mismatches
   const formatTimeString = (dateInput: string | Date) => {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return '';
@@ -340,9 +334,8 @@ export default function BroadcastCenterPage() {
     return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
   };
 
-  // Compute estimated cost
   const computeEstimatedCost = () => {
-    let rate = 0.020; // Default MARKETING
+    let rate = 0.020;
     if (activeTemplate?.category === 'UTILITY') {
       rate = 0.010;
     } else if (activeTemplate?.category === 'AUTHENTICATION') {
@@ -352,32 +345,35 @@ export default function BroadcastCenterPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 bg-[#f9f9ff] relative overflow-y-auto">
-      {/* Alert Notification */}
+    <div className="flex-1 flex flex-col min-w-0 font-sans text-gray-900 pb-12">
+      {/* Toast Notification */}
       {notification && (
         <div
-          className={`fixed top-4 right-6 px-5 py-3 rounded-2xl shadow-xl z-50 flex items-center gap-2 border font-bold text-xs ${
+          className={cn(
+            'fixed top-5 right-6 px-4 py-2.5 rounded-xl shadow-lg z-50 flex items-center gap-2 border font-semibold text-xs animate-in fade-in slide-in-from-top-2 duration-150',
             notification.type === 'success'
-              ? 'bg-emerald-50 border-emerald-250 text-emerald-800'
-              : 'bg-rose-50 border-rose-250 text-rose-800'
-          }`}
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          )}
         >
-          <span className="material-symbols-outlined text-[18px]">
+          <span className="material-symbols-outlined text-[17px]">
             {notification.type === 'success' ? 'check_circle' : 'warning'}
           </span>
           {notification.message}
         </div>
       )}
 
-      {/* Main Header - matching EXACT layout */}
-      <header className="sticky top-0 z-20 bg-white border-b border-[#c3c6d7] h-16 flex items-center justify-between px-8 shrink-0 shadow-sm">
-        <h2 className="text-[18px] font-bold tracking-tight text-[#1c1b1f]">
+      {/* Page Header: Title + Actions */}
+      <div className="flex items-center justify-between pb-6 pt-1">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
           New Broadcast
-        </h2>
+        </h1>
+
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() => showNotification('success', 'Campaign saved as Draft')}
-            className="px-4 py-2 rounded-xl border border-[#c3c6d7] hover:bg-slate-50 text-xs font-bold text-[#49454f] transition-all"
+            className="px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 bg-white transition-colors shadow-2xs"
           >
             Save as Draft
           </button>
@@ -385,22 +381,22 @@ export default function BroadcastCenterPage() {
             type="button"
             onClick={handleSendCampaignSubmit}
             disabled={sendCampaignMutation.isPending}
-            className="px-5 py-2 rounded-xl bg-[#004ac6] hover:bg-[#003ca0] text-white font-bold text-xs shadow-md shadow-[#004ac6]/10 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-[#004ac6] hover:bg-[#003cb0] text-white font-semibold text-xs shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-98"
           >
             <span className="material-symbols-outlined text-[16px]">send</span>
-            {sendCampaignMutation.isPending ? 'Sending...' : 'Schedule/Send'}
+            <span>{sendCampaignMutation.isPending ? 'Sending...' : 'Schedule/Send'}</span>
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* Main Body - Centered card grid max-width 1000px */}
-      <main className="flex-1 p-8 max-w-[1050px] w-full mx-auto space-y-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Form Controls (7 cols) */}
-          <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-[#c3c6d7] shadow-sm space-y-6">
+      {/* Main Content: 2-Column Layout */}
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT: Campaign Creation Form (7 cols) */}
+          <div className="lg:col-span-7 bg-white p-6 sm:p-7 rounded-2xl border border-gray-200 shadow-2xs space-y-6">
             {/* Campaign Name */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-[#49454f] uppercase tracking-wide">
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
                 Campaign Name
               </label>
               <input
@@ -408,32 +404,33 @@ export default function BroadcastCenterPage() {
                 placeholder="e.g. Policy Renewal Reminder Oct-23"
                 value={campaignName}
                 onChange={(e) => setCampaignName(e.target.value)}
-                className="w-full bg-white border border-[#c3c6d7] rounded-xl px-4 py-2.5 text-xs text-[#1c1b1f] focus:outline-none focus:border-[#004ac6] focus:ring-2 focus:ring-[#004ac6]/10 transition-all font-semibold"
+                className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-medium"
               />
             </div>
 
-            {/* 1. Template Selector */}
+            {/* 1. Select WhatsApp Template */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="text-[10px] font-bold text-[#49454f] uppercase tracking-wide">
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
                   1. Select WhatsApp Template
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsTemplateModalOpen(true)}
-                  className="text-[10px] text-[#004ac6] font-bold hover:underline"
+                  className="text-xs text-[#004ac6] font-semibold hover:underline"
                 >
                   + Create New Template
                 </button>
               </div>
+
               {templatesLoading ? (
-                <div className="h-10 bg-slate-100 rounded-xl animate-pulse" />
+                <div className="h-10 bg-gray-100 rounded-xl animate-pulse" />
               ) : (
                 <select
                   suppressHydrationWarning
                   value={selectedTemplateId}
                   onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  className="w-full bg-white border border-[#c3c6d7] rounded-xl px-4 py-2.5 text-xs text-[#1c1b1f] focus:outline-none focus:border-[#004ac6] transition-all font-semibold"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-medium cursor-pointer"
                 >
                   <option value="">-- Choose Approved Template --</option>
                   {templates.map((tpl) => (
@@ -447,100 +444,129 @@ export default function BroadcastCenterPage() {
                   ))}
                 </select>
               )}
+
               {activeTemplate && (
-                <p className="text-[10px] text-green-600 font-bold flex items-center gap-1 mt-1">
-                  <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                  Approved by Meta (Ready to Send)
-                </p>
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold pt-1">
+                  <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                  <span>Approved by Meta (Ready to Send)</span>
+                </div>
               )}
             </div>
 
-            {/* 2. Recipient Selector */}
-            <div className="space-y-3">
-              <label className="text-[10px] font-bold text-[#49454f] uppercase tracking-wide block">
+            {/* 2. Select Recipients */}
+            <div className="space-y-2.5">
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
                 2. Select Recipients
               </label>
-              
-              {/* Radio Grid matching Stitch mockup class style */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label
-                  className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition-colors ${recipientType === 'all' ? 'border-[#004ac6] bg-[#004ac6]/5' : 'border-[#c3c6d7] bg-white'}`}
-                >
-                  <input
-                    type="radio"
-                    name="recipients"
-                    value="all"
-                    checked={recipientType === 'all'}
-                    onChange={() => {
-                      setRecipientType('all');
-                      setFilterValue('');
-                    }}
-                    className="text-[#004ac6] focus:ring-[#004ac6]"
-                  />
-                  <span className="text-xs font-semibold text-[#1c1b1f]">All Contacts</span>
-                </label>
 
-                <label
-                  className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition-colors ${recipientType === 'tag' ? 'border-[#004ac6] bg-[#004ac6]/5' : 'border-[#c3c6d7] bg-white'}`}
+              {/* 2x2 Radio Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecipientType('all');
+                    setFilterValue('');
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer',
+                    recipientType === 'all'
+                      ? 'border-[#004ac6] bg-blue-50/40 text-blue-900'
+                      : 'border-gray-200 bg-white hover:bg-gray-50/70 text-gray-700'
+                  )}
                 >
-                  <input
-                    type="radio"
-                    name="recipients"
-                    value="tag"
-                    checked={recipientType === 'tag'}
-                    onChange={() => {
-                      setRecipientType('tag');
-                      setFilterValue('');
-                    }}
-                    className="text-[#004ac6] focus:ring-[#004ac6]"
-                  />
-                  <span className="text-xs font-semibold text-[#1c1b1f]">By Tag</span>
-                </label>
+                  <span className={cn(
+                    'w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all',
+                    recipientType === 'all'
+                      ? 'border-[#004ac6] bg-white'
+                      : 'border-gray-300 bg-white'
+                  )}>
+                    {recipientType === 'all' && <span className="w-2 h-2 rounded-full bg-[#004ac6]" />}
+                  </span>
+                  <span className="text-xs font-semibold">All Contacts</span>
+                </button>
 
-                <label
-                  className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition-colors ${recipientType === 'stage' ? 'border-[#004ac6] bg-[#004ac6]/5' : 'border-[#c3c6d7] bg-white'}`}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecipientType('tag');
+                    setFilterValue('');
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer',
+                    recipientType === 'tag'
+                      ? 'border-[#004ac6] bg-blue-50/40 text-blue-900'
+                      : 'border-gray-200 bg-white hover:bg-gray-50/70 text-gray-700'
+                  )}
                 >
-                  <input
-                    type="radio"
-                    name="recipients"
-                    value="stage"
-                    checked={recipientType === 'stage'}
-                    onChange={() => {
-                      setRecipientType('stage');
-                      setFilterValue('');
-                    }}
-                    className="text-[#004ac6] focus:ring-[#004ac6]"
-                  />
-                  <span className="text-xs font-semibold text-[#1c1b1f]">By Pipeline Stage</span>
-                </label>
+                  <span className={cn(
+                    'w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all',
+                    recipientType === 'tag'
+                      ? 'border-[#004ac6] bg-white'
+                      : 'border-gray-300 bg-white'
+                  )}>
+                    {recipientType === 'tag' && <span className="w-2 h-2 rounded-full bg-[#004ac6]" />}
+                  </span>
+                  <span className="text-xs font-semibold">By Tag</span>
+                </button>
 
-                <label
-                  className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition-colors ${recipientType === 'date_range' ? 'border-[#004ac6] bg-[#004ac6]/5' : 'border-[#c3c6d7] bg-white'}`}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecipientType('stage');
+                    setFilterValue('');
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer',
+                    recipientType === 'stage'
+                      ? 'border-[#004ac6] bg-blue-50/40 text-blue-900'
+                      : 'border-gray-200 bg-white hover:bg-gray-50/70 text-gray-700'
+                  )}
                 >
-                  <input
-                    type="radio"
-                    name="recipients"
-                    value="date_range"
-                    checked={recipientType === 'date_range'}
-                    onChange={() => {
-                      setRecipientType('date_range');
-                      setFilterValue('');
-                      if (!filterStartDate && !filterEndDate) {
-                        const today = new Date().toISOString().split('T')[0];
-                        setFilterStartDate(today);
-                        setFilterEndDate(today);
-                      }
-                    }}
-                    className="text-[#004ac6] focus:ring-[#004ac6]"
-                  />
-                  <span className="text-xs font-semibold text-[#1c1b1f]">By Date Range</span>
-                </label>
+                  <span className={cn(
+                    'w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all',
+                    recipientType === 'stage'
+                      ? 'border-[#004ac6] bg-white'
+                      : 'border-gray-300 bg-white'
+                  )}>
+                    {recipientType === 'stage' && <span className="w-2 h-2 rounded-full bg-[#004ac6]" />}
+                  </span>
+                  <span className="text-xs font-semibold">By Pipeline Stage</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecipientType('date_range');
+                    setFilterValue('');
+                    if (!filterStartDate && !filterEndDate) {
+                      const today = new Date().toISOString().split('T')[0];
+                      setFilterStartDate(today);
+                      setFilterEndDate(today);
+                    }
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer',
+                    recipientType === 'date_range'
+                      ? 'border-[#004ac6] bg-blue-50/40 text-blue-900'
+                      : 'border-gray-200 bg-white hover:bg-gray-50/70 text-gray-700'
+                  )}
+                >
+                  <span className={cn(
+                    'w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all',
+                    recipientType === 'date_range'
+                      ? 'border-[#004ac6] bg-white'
+                      : 'border-gray-300 bg-white'
+                  )}>
+                    {recipientType === 'date_range' && <span className="w-2 h-2 rounded-full bg-[#004ac6]" />}
+                  </span>
+                  <span className="text-xs font-semibold">By Date Range</span>
+                </button>
               </div>
 
-              {/* Recipient inputs fields */}
+              {/* Dynamic Filter Inputs */}
               {recipientType === 'tag' && (
-                <div className="space-y-1 pt-1.5 animate-in fade-in duration-200">
-                  <label className="text-[9px] text-[#737686] font-bold block">Filter by Tag</label>
+                <div className="pt-1.5 space-y-1 animate-in fade-in duration-150">
+                  <label className="text-[10px] text-gray-500 font-semibold block">Filter by Tag</label>
                   <SearchableTagSelect
                     value={filterValue}
                     onChange={setFilterValue}
@@ -549,13 +575,15 @@ export default function BroadcastCenterPage() {
               )}
 
               {recipientType === 'stage' && (
-                <div className="space-y-1 pt-1.5 animate-in fade-in duration-200">
-                  <label htmlFor="pipeline-stage-select" className="text-[9px] text-[#737686] font-bold block">Pipeline Stage</label>
+                <div className="pt-1.5 space-y-1 animate-in fade-in duration-150">
+                  <label htmlFor="pipeline-stage-select" className="text-[10px] text-gray-500 font-semibold block">
+                    Pipeline Stage
+                  </label>
                   <select
                     id="pipeline-stage-select"
                     value={filterValue}
                     onChange={(e) => setFilterValue(e.target.value)}
-                    className="w-full bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#004ac6] font-bold text-[#1c1b1f]"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-blue-500 text-gray-900 cursor-pointer"
                   >
                     <option value="">-- Choose Stage --</option>
                     <option value="NEW">New Lead</option>
@@ -568,9 +596,9 @@ export default function BroadcastCenterPage() {
               )}
 
               {recipientType === 'date_range' && (
-                <div className="space-y-2 pt-1.5 animate-in fade-in duration-200">
+                <div className="pt-1.5 space-y-2 animate-in fade-in duration-150">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-[#49454f]">Filter by Created Date</span>
+                    <span className="text-[10px] font-semibold text-gray-500">Filter by Created Date</span>
                     <button
                       type="button"
                       onClick={() => {
@@ -578,48 +606,52 @@ export default function BroadcastCenterPage() {
                         setFilterStartDate(today);
                         setFilterEndDate(today);
                       }}
-                      className="text-[10px] text-[#004ac6] font-bold hover:underline"
+                      className="text-[10px] text-[#004ac6] font-semibold hover:underline"
                     >
                       Set to Today
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label htmlFor="start-date-input" className="text-[9px] text-[#737686] font-bold block">From Created Date</label>
+                      <label htmlFor="start-date-input" className="text-[10px] text-gray-400 font-semibold block">
+                        From Date
+                      </label>
                       <input
                         id="start-date-input"
                         type="date"
                         value={filterStartDate}
                         onChange={(e) => setFilterStartDate(e.target.value)}
-                        className="w-full bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-1.5 text-xs focus:outline-none text-[#1c1b1f] font-semibold"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-900 font-medium focus:outline-none focus:border-blue-500"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label htmlFor="end-date-input" className="text-[9px] text-[#737686] font-bold block">To Created Date</label>
+                      <label htmlFor="end-date-input" className="text-[10px] text-gray-400 font-semibold block">
+                        To Date
+                      </label>
                       <input
                         id="end-date-input"
                         type="date"
                         value={filterEndDate}
                         onChange={(e) => setFilterEndDate(e.target.value)}
-                        className="w-full bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-1.5 text-xs focus:outline-none text-[#1c1b1f] font-semibold"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-900 font-medium focus:outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Real-time Recipient Badge */}
-              <div className="pt-2 flex items-center">
-                <div className="flex items-center gap-2 bg-[#dbe1ff] text-[#003ea8] px-4 py-2 rounded-full font-bold text-xs shadow-sm">
-                  <span className="material-symbols-outlined text-[16px]">group</span>
+              {/* Recipient Badge */}
+              <div className="pt-1 flex items-center">
+                <div className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3.5 py-1.5 rounded-full font-semibold text-xs border border-blue-200 shadow-2xs">
+                  <span className="material-symbols-outlined text-[15px]">group</span>
                   <span>{previewLoading ? '...' : recipientCount.toLocaleString()} recipients targeted</span>
                 </div>
               </div>
             </div>
 
-            {/* 3. Personalization Variables insertion tags */}
+            {/* 3. Personalization Variables */}
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-[#49454f] uppercase tracking-wide block">
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
                 3. Personalization Variables
               </label>
               <div className="flex flex-wrap gap-2 items-center">
@@ -628,39 +660,37 @@ export default function BroadcastCenterPage() {
                     key={variable}
                     type="button"
                     onClick={() => handleInsertVariable(variable)}
-                    className="px-3.5 py-1.5 bg-[#e7eeff] rounded-xl text-[11px] font-bold text-[#004ac6] hover:bg-[#004ac6]/10 active:scale-95 transition-all border border-[#004ac6]/10"
+                    className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs font-mono font-medium hover:bg-blue-100 transition-colors border border-blue-200 shadow-2xs active:scale-95"
                   >
                     {"{{"}{variable}{"}}"}
                   </button>
                 ))}
-                <span className="text-[9px] text-slate-400 italic ml-2">
-                  (Click to copy variable / Insert in composer)
-                </span>
               </div>
+              <p className="text-[11px] text-gray-400 italic">
+                (Click to copy variable / Insert in composer)
+              </p>
             </div>
 
-            {/* 4. Compliance & Opt-out notice info banner */}
+            {/* 4. Compliance & Opt-Out Protection */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-[#49454f] uppercase tracking-wide block">
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
                 4. Compliance & Opt-Out Protection
               </label>
-              <div className="bg-red-50 border-l-4 border-red-500 p-3.5 rounded-r-xl flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-red-700 text-[18px]">block</span>
-                <p className="text-[11px] text-red-950 font-bold">
+              <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3 flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-rose-600 text-[18px]">block</span>
+                <p className="text-xs text-rose-800 font-semibold">
                   {optedOutCount} opted-out contacts will be automatically excluded
                 </p>
               </div>
             </div>
 
-            {/* 5. Schedule section */}
-            <div className="space-y-3">
-              <label className="text-[10px] font-bold text-[#49454f] uppercase tracking-wide block">
+            {/* 5. Scheduling Options */}
+            <div className="space-y-2.5">
+              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">
                 5. Scheduling Options
               </label>
               <div className="space-y-2">
-                <label
-                  className="flex items-center gap-2.5 cursor-pointer font-bold text-xs text-[#1c1b1f]"
-                >
+                <label className="flex items-center gap-2.5 cursor-pointer font-semibold text-xs text-gray-900 select-none">
                   <input
                     type="radio"
                     name="scheduleOptions"
@@ -669,11 +699,9 @@ export default function BroadcastCenterPage() {
                     onChange={() => setScheduleType('now')}
                     className="text-[#004ac6] focus:ring-[#004ac6]"
                   />
-                  Send Now
+                  <span>Send Now</span>
                 </label>
-                <label
-                  className="flex items-center gap-2.5 cursor-pointer font-bold text-xs text-[#1c1b1f]"
-                >
+                <label className="flex items-center gap-2.5 cursor-pointer font-semibold text-xs text-gray-900 select-none">
                   <input
                     type="radio"
                     name="scheduleOptions"
@@ -682,123 +710,121 @@ export default function BroadcastCenterPage() {
                     onChange={() => setScheduleType('later')}
                     className="text-[#004ac6] focus:ring-[#004ac6]"
                   />
-                  Schedule for Later
+                  <span>Schedule for Later</span>
                 </label>
               </div>
 
               {scheduleType === 'later' && (
-                <div className="flex gap-4 pt-1 animate-in fade-in slide-in-from-top-1 duration-200 pl-6">
+                <div className="flex gap-3 pt-1 animate-in fade-in slide-in-from-top-1 duration-150 pl-5">
                   <div className="space-y-1">
-                    <span className="text-[9px] text-[#737686] font-bold block">Start Date</span>
+                    <span className="text-[10px] text-gray-500 font-semibold block">Start Date</span>
                     <input
                       type="date"
                       value={scheduleDate}
                       onChange={(e) => setScheduleDate(e.target.value)}
-                      className="bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-1.5 text-xs text-[#1c1b1f] focus:outline-none"
+                      className="bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-blue-500 font-medium"
                     />
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[9px] text-[#737686] font-bold block">Start Time</span>
+                    <span className="text-[10px] text-gray-500 font-semibold block">Start Time</span>
                     <input
                       type="time"
                       value={scheduleTime}
                       onChange={(e) => setScheduleTime(e.target.value)}
-                      className="bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-1.5 text-xs text-[#1c1b1f] focus:outline-none"
+                      className="bg-white border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-900 focus:outline-none focus:border-blue-500 font-medium"
                     />
                   </div>
                 </div>
               )}
             </div>
 
-            {/* 6. Cost estimate card */}
-            <div className="bg-[#e7eeff] p-4 rounded-xl border border-[#c3c6d7]/70 flex items-start gap-3">
-              <span className="material-symbols-outlined text-[#004ac6] text-[20px] font-bold">
-                payments
-              </span>
+            {/* Estimated Cost Card */}
+            <div className="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100/80 text-[#004ac6] flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[18px]">credit_card</span>
+              </div>
               <div>
-                <p className="font-extrabold text-xs text-[#004ac6]">
+                <p className="font-bold text-xs text-blue-900">
                   Estimated cost: ${computeEstimatedCost().toFixed(2)}
                 </p>
-                <p className="text-[10px] text-[#49454f] font-medium mt-0.5">
+                <p className="text-[11px] text-gray-500 font-medium mt-0.5">
                   ({recipientCount.toLocaleString()} conversations @ {activeTemplate?.category || 'MARKETING'} rate)
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Live preview sidebar window (5 cols) */}
-          <div className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
-            <div className="bg-slate-900 p-4 rounded-[40px] border-[10px] border-slate-950 shadow-2xl relative overflow-hidden h-[490px] flex flex-col">
-              {/* Wallpaper Background */}
-              <div
-                className="absolute inset-0 opacity-20 bg-cover bg-center pointer-events-none"
-                style={{
-                  backgroundImage:
-                    "url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80')",
-                }}
-              />
-
+          {/* RIGHT: WhatsApp Message Preview (5 cols) */}
+          <div className="lg:col-span-5 lg:sticky lg:top-6 space-y-4">
+            {/* Phone Mockup Frame */}
+            <div className="bg-slate-900 p-3.5 rounded-[36px] border-4 border-slate-800 shadow-xl relative overflow-hidden flex flex-col h-[490px]">
               <div className="relative z-10 flex flex-col h-full">
-                {/* Header Phone mockup bar */}
-                <div className="bg-slate-900/90 backdrop-blur-md p-3 pb-3 rounded-t-2xl flex items-center gap-3 border-b border-slate-800">
-                  <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-extrabold text-xs shrink-0 border border-slate-600">
-                    WA
+                {/* Phone Mockup Header */}
+                <div className="bg-slate-800/80 backdrop-blur-md p-3 rounded-t-2xl flex items-center justify-between border-b border-slate-700/60 shrink-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-bold text-[10px] shrink-0 border border-slate-600">
+                      WA
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-slate-100 leading-tight">OneAIAssist Official</p>
+                      <p className="text-[9px] text-emerald-400 font-medium leading-none mt-0.5">online</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-bold text-slate-100">OneAIAssist Official</p>
-                    <p className="text-[8px] text-green-500 font-bold">online</p>
-                  </div>
+                  <span className="material-symbols-outlined text-slate-400 text-[18px]">more_vert</span>
                 </div>
 
-                {/* Simulated Messages Screen */}
-                <div className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
-                  {/* WhatsApp bubble */}
-                  <div className="bg-emerald-50 border border-emerald-100 p-3 shadow-md rounded-xl rounded-tl-sm max-w-[85%] self-start flex flex-col gap-1.5 relative text-xs">
+                {/* Simulated Chat Area */}
+                <div className="flex-1 p-3.5 flex flex-col gap-3 overflow-y-auto bg-slate-900/60">
+                  {/* WhatsApp Message Bubble */}
+                  <div className="bg-[#e7f8ec] border border-emerald-200/60 p-3 shadow-sm rounded-xl rounded-tl-xs max-w-[90%] self-start flex flex-col gap-1.5 text-xs">
                     {activeTemplate?.header && (
-                      <p className="text-[10px] text-emerald-800 font-extrabold uppercase tracking-wide border-b border-emerald-100 pb-1">
+                      <p className="text-[10px] text-emerald-800 font-extrabold uppercase tracking-wider border-b border-emerald-200/50 pb-1">
                         {activeTemplate.header}
                       </p>
                     )}
 
-                    {/* renderHighlightedBody replaces placeholders with colored blocks */}
-                    <div className="text-slate-800 leading-relaxed font-semibold">
+                    <div className="text-gray-900 leading-relaxed font-normal">
                       {activeTemplate 
                         ? renderHighlightedBody(activeTemplate.body)
-                        : renderHighlightedBody("Hello {{name}},\n\nYour policy number {{policy_number}} is due for renewal on {{due_date}}.\n\nFooter: STOP to opt-out")
+                        : renderHighlightedBody("Hello {{name}},\n\nYour policy number {{policy_number}} is due for renewal. Best regards, Apex Assurance")
                       }
                     </div>
 
                     {activeTemplate?.footer && (
-                      <p className="text-[9px] text-slate-500 italic mt-0.5 border-t border-emerald-100/50 pt-1">
+                      <p className="text-[10px] text-gray-500 italic mt-0.5 border-t border-emerald-200/40 pt-1">
                         {activeTemplate.footer}
                       </p>
                     )}
 
                     {activeTemplate?.ctaButtons && Array.isArray(activeTemplate.ctaButtons) && (
-                      <div className="mt-2 space-y-1 border-t border-emerald-100/50 pt-2">
+                      <div className="mt-2 space-y-1.5 border-t border-emerald-200/50 pt-2">
                         {activeTemplate.ctaButtons.map((btn: string, bIdx: number) => (
-                          <button
+                          <div
                             key={bIdx}
-                            type="button"
-                            className="w-full py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-[11px] font-bold text-[#004ac6] rounded-lg shadow-sm text-center"
+                            className="w-full py-1.5 bg-white border border-gray-200 text-xs font-semibold text-[#004ac6] rounded-lg shadow-2xs text-center"
                           >
                             {btn}
-                          </button>
+                          </div>
                         ))}
                       </div>
                     )}
 
-                    <div suppressHydrationWarning className="text-[8px] text-slate-400 text-right mt-1 font-semibold">
+                    <div suppressHydrationWarning className="text-[9px] text-gray-400 text-right mt-0.5 font-medium">
                       10:42 AM
                     </div>
                   </div>
                 </div>
+
+                {/* Phone Bottom Home Bar */}
+                <div className="pt-2 pb-1 flex justify-center shrink-0">
+                  <div className="w-24 h-1 bg-slate-600 rounded-full" />
+                </div>
               </div>
             </div>
 
-            {/* Quick Preview variables inputs */}
-            <div className="bg-white border border-[#c3c6d7] rounded-2xl p-4 shadow-sm space-y-3">
-              <h4 className="font-extrabold text-[10px] text-[#49454f] uppercase tracking-wide border-b border-slate-100 pb-1">
+            {/* Preview Values Mock Form */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-2xs space-y-2.5">
+              <h4 className="font-bold text-[10px] text-gray-500 uppercase tracking-wider">
                 Preview Values Mock (Edit to Test Preview)
               </h4>
               <div className="grid grid-cols-2 gap-2">
@@ -807,73 +833,82 @@ export default function BroadcastCenterPage() {
                   placeholder="name val"
                   value={varName}
                   onChange={(e) => setVarName(e.target.value)}
-                  className="bg-slate-50 border border-[#c3c6d7] rounded-lg px-2.5 py-1 text-[11px] focus:outline-none"
+                  className="bg-gray-50/70 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:bg-white focus:outline-none focus:border-blue-500"
                 />
                 <input
                   type="text"
                   placeholder="policy val"
                   value={varPolicy}
                   onChange={(e) => setVarPolicy(e.target.value)}
-                  className="bg-slate-50 border border-[#c3c6d7] rounded-lg px-2.5 py-1 text-[11px] focus:outline-none"
+                  className="bg-gray-50/70 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:bg-white focus:outline-none focus:border-blue-500"
                 />
                 <input
                   type="text"
                   placeholder="interaction val"
                   value={varLastInteraction}
                   onChange={(e) => setVarLastInteraction(e.target.value)}
-                  className="bg-slate-50 border border-[#c3c6d7] rounded-lg px-2.5 py-1 text-[11px] focus:outline-none"
+                  className="bg-gray-50/70 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:bg-white focus:outline-none focus:border-blue-500"
                 />
                 <input
                   type="text"
                   placeholder="due date val"
                   value={varDueDate}
                   onChange={(e) => setVarDueDate(e.target.value)}
-                  className="bg-slate-50 border border-[#c3c6d7] rounded-lg px-2.5 py-1 text-[11px] focus:outline-none"
+                  className="bg-gray-50/70 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 focus:bg-white focus:outline-none focus:border-blue-500"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Campaign History Section */}
-        <section className="bg-white rounded-2xl border border-[#c3c6d7] overflow-hidden shadow-sm">
-          <div className="p-5 border-b border-[#c3c6d7] flex justify-between items-center bg-slate-50">
-            <h3 className="font-bold text-xs text-[#1c1b1f] uppercase tracking-wider">
+        {/* Campaign History Full-Width Section */}
+        <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-2xs">
+          <div className="p-4 sm:p-5 border-b border-gray-200 flex justify-between items-center bg-white">
+            <h3 className="font-bold text-xs text-gray-900 uppercase tracking-wider">
               Campaign History
             </h3>
             <div className="flex gap-2">
-              <button className="p-2 border border-[#c3c6d7] hover:bg-slate-100 rounded-xl text-slate-500 transition-colors">
-                <span className="material-symbols-outlined text-[18px]">filter_list</span>
+              <button
+                type="button"
+                className="p-1.5 border border-gray-200 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors"
+                title="Filter campaigns"
+              >
+                <span className="material-symbols-outlined text-[17px]">filter_list</span>
               </button>
-              <button className="p-2 border border-[#c3c6d7] hover:bg-slate-100 rounded-xl text-slate-500 transition-colors">
-                <span className="material-symbols-outlined text-[18px]">download</span>
+              <button
+                type="button"
+                className="p-1.5 border border-gray-200 hover:bg-gray-50 rounded-lg text-gray-500 transition-colors"
+                title="Download report"
+              >
+                <span className="material-symbols-outlined text-[17px]">download</span>
               </button>
             </div>
           </div>
+
           <div className="overflow-x-auto">
             {campaignsLoading ? (
-              <div className="p-8 text-center text-xs text-[#737686] animate-pulse">
-                Loading history stats...
+              <div className="p-8 text-center text-xs text-gray-400 animate-pulse">
+                Loading campaign history...
               </div>
             ) : campaigns.length === 0 ? (
-              <div className="p-8 text-center text-xs text-[#737686]">
+              <div className="p-8 text-center text-xs text-gray-400">
                 No campaigns found.
               </div>
             ) : (
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50/50 border-b border-[#c3c6d7]">
-                    <th className="px-6 py-3 font-bold text-[#49454f] uppercase tracking-wider">Campaign Name</th>
-                    <th className="px-6 py-3 font-bold text-[#49454f] uppercase tracking-wider">Sent Date</th>
-                    <th className="px-6 py-3 font-bold text-[#49454f] uppercase tracking-wider">Recipients</th>
-                    <th className="px-6 py-3 font-bold text-[#49454f] uppercase tracking-wider text-center">Delivered</th>
-                    <th className="px-6 py-3 font-bold text-[#49454f] uppercase tracking-wider text-center">Read</th>
-                    <th className="px-6 py-3 font-bold text-[#49454f] uppercase tracking-wider text-center">Replied</th>
-                    <th className="px-6 py-3 font-bold text-[#49454f] uppercase tracking-wider text-center">Converted</th>
-                    <th className="px-6 py-3 font-bold text-[#49454f] uppercase tracking-wider">Cost</th>
+                  <tr className="bg-gray-50/80 border-b border-gray-200">
+                    <th className="px-5 py-3 font-semibold text-gray-500 uppercase tracking-wider text-[11px]">Campaign Name</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 uppercase tracking-wider text-[11px]">Sent Date</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 uppercase tracking-wider text-[11px]">Recipients</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 uppercase tracking-wider text-[11px] text-center">Delivered</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 uppercase tracking-wider text-[11px] text-center">Read</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 uppercase tracking-wider text-[11px] text-center">Replied</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 uppercase tracking-wider text-[11px] text-center">Converted</th>
+                    <th className="px-5 py-3 font-semibold text-gray-500 uppercase tracking-wider text-[11px]">Cost</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#c3c6d7]/60">
+                <tbody className="divide-y divide-gray-100">
                   {campaigns.map((camp) => {
                     const deliveredPct = camp.sent > 0 ? Math.round((camp.delivered / camp.sent) * 100) : 0;
                     const readPct = camp.delivered > 0 ? Math.round((camp.read / camp.delivered) * 100) : 0;
@@ -881,46 +916,46 @@ export default function BroadcastCenterPage() {
                     const conversionPct = camp.sent > 0 ? ((camp.converted / camp.sent) * 100).toFixed(1) : '0.0';
 
                     return (
-                      <tr key={camp.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-xs text-[#004ac6]">{camp.name}</div>
-                          <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                      <tr key={camp.id} className="hover:bg-gray-50/60 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <div className="font-semibold text-xs text-[#004ac6]">{camp.name}</div>
+                          <div className="text-[10px] text-gray-400 font-medium mt-0.5">
                             {camp.template?.name || 'Manual'} ({camp.status})
                           </div>
                         </td>
-                        <td className="px-6 py-4 font-semibold text-[#49454f]">
+                        <td className="px-5 py-3.5 font-medium text-gray-600">
                           {formatDateString(camp.createdAt)}
-                          <span className="text-[10px] font-medium text-[#737686] block" suppressHydrationWarning>
+                          <span className="text-[10px] text-gray-400 block" suppressHydrationWarning>
                             {formatTimeString(camp.createdAt)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 font-bold text-[#1c1b1f]">
+                        <td className="px-5 py-3.5 font-bold text-gray-900">
                           {camp.sent}
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="w-16 mx-auto bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div className="bg-green-500 h-full" style={{ width: `${deliveredPct}%` }} />
+                        <td className="px-5 py-3.5 text-center">
+                          <div className="w-16 mx-auto bg-gray-100 h-1.5 rounded-full overflow-hidden mb-1">
+                            <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${deliveredPct}%` }} />
                           </div>
-                          <span className="text-[9px] font-extrabold text-[#49454f]">{deliveredPct}%</span>
+                          <span className="text-[10px] font-semibold text-gray-600">{deliveredPct}%</span>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="w-16 mx-auto bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div className="bg-blue-500 h-full" style={{ width: `${readPct}%` }} />
+                        <td className="px-5 py-3.5 text-center">
+                          <div className="w-16 mx-auto bg-gray-100 h-1.5 rounded-full overflow-hidden mb-1">
+                            <div className="bg-blue-500 h-full rounded-full" style={{ width: `${readPct}%` }} />
                           </div>
-                          <span className="text-[9px] font-extrabold text-[#49454f]">{readPct}%</span>
+                          <span className="text-[10px] font-semibold text-gray-600">{readPct}%</span>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="w-16 mx-auto bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div className="bg-amber-500 h-full" style={{ width: `${repliedPct}%` }} />
+                        <td className="px-5 py-3.5 text-center">
+                          <div className="w-16 mx-auto bg-gray-100 h-1.5 rounded-full overflow-hidden mb-1">
+                            <div className="bg-amber-500 h-full rounded-full" style={{ width: `${repliedPct}%` }} />
                           </div>
-                          <span className="text-[9px] font-extrabold text-[#49454f]">{repliedPct}%</span>
+                          <span className="text-[10px] font-semibold text-gray-600">{repliedPct}%</span>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-250 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold">
+                        <td className="px-5 py-3.5 text-center">
+                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-semibold">
                             {conversionPct}%
                           </span>
                         </td>
-                        <td className="px-6 py-4 font-bold text-slate-800">
+                        <td className="px-5 py-3.5 font-semibold text-gray-900">
                           ${camp.cost.toFixed(2)}
                         </td>
                       </tr>
@@ -931,29 +966,29 @@ export default function BroadcastCenterPage() {
             )}
           </div>
         </section>
-      </main>
+      </div>
 
       {/* CREATE TEMPLATE DIALOG MODAL */}
       {isTemplateModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white border border-[#c3c6d7] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <header className="px-6 py-4 bg-slate-50 border-b border-[#c3c6d7] flex items-center justify-between shrink-0">
-              <span className="text-xs font-extrabold uppercase tracking-wide text-[#1c1b1f]">
+        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <header className="px-5 py-3.5 bg-gray-50/80 border-b border-gray-200 flex items-center justify-between shrink-0">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-800">
                 Author WhatsApp Template
               </span>
               <button
                 type="button"
                 onClick={() => setIsTemplateModalOpen(false)}
-                className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-[#737686] transition-all"
+                className="w-7 h-7 rounded-lg hover:bg-gray-200/60 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </header>
 
-            <form onSubmit={handleCreateTemplateSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+            <form onSubmit={handleCreateTemplateSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
               {/* Name */}
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-[#49454f] uppercase tracking-wider block">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                   Template Name
                 </span>
                 <input
@@ -961,23 +996,24 @@ export default function BroadcastCenterPage() {
                   placeholder="e.g. policy_renewal_reminder"
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                  className="w-full bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#004ac6]"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
                   required
                 />
               </div>
 
               {/* Category */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {(['MARKETING', 'UTILITY', 'AUTHENTICATION'] as const).map((cat) => (
                   <button
                     key={cat}
                     type="button"
                     onClick={() => setTemplateCategory(cat)}
-                    className={`px-3 py-2.5 rounded-xl border text-[10px] font-extrabold transition-all ${
+                    className={cn(
+                      'px-3 py-2 rounded-xl border text-[10px] font-bold transition-all',
                       templateCategory === cat
-                        ? 'border-[#004ac6] bg-[#004ac6]/5 text-[#004ac6]'
-                        : 'border-[#c3c6d7] bg-white text-[#49454f]'
-                    }`}
+                        ? 'border-[#004ac6] bg-blue-50/50 text-[#004ac6]'
+                        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    )}
                   >
                     {cat}
                   </button>
@@ -986,28 +1022,30 @@ export default function BroadcastCenterPage() {
 
               {/* Header Text */}
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-[#49454f] uppercase tracking-wider block">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                   Header text (Optional Bold Title)
                 </span>
                 <input
                   type="text"
                   value={templateHeader}
                   onChange={(e) => setTemplateHeader(e.target.value)}
-                  className="w-full bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-2 text-xs focus:outline-none"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
                   placeholder="e.g. ACTION REQUIRED"
                 />
               </div>
 
               {/* Variable Helper chips inside composer */}
               <div className="space-y-1">
-                <span className="text-[9px] text-[#737686] font-bold block mb-1">Click variables to insert at cursor position:</span>
-                <div className="flex gap-2">
+                <span className="text-[10px] text-gray-400 font-semibold block mb-1">
+                  Click variables to insert at cursor position:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
                   {(['name', 'policy_number', 'last_interaction', 'due_date'] as const).map((variable) => (
                     <button
                       key={variable}
                       type="button"
                       onClick={() => handleInsertVariable(variable)}
-                      className="px-2 py-1 bg-slate-100 hover:bg-[#e7eeff] border border-slate-200 rounded-lg text-[10px] font-bold text-slate-800"
+                      className="px-2 py-1 bg-gray-100 hover:bg-blue-50 hover:text-blue-600 border border-gray-200 rounded-lg text-[10px] font-mono font-medium text-gray-700 transition-colors"
                     >
                       {"{{"}{variable}{"}}"}
                     </button>
@@ -1017,7 +1055,7 @@ export default function BroadcastCenterPage() {
 
               {/* Template Body */}
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-[#49454f] uppercase tracking-wider block">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                   Template Body Text
                 </span>
                 <textarea
@@ -1025,7 +1063,7 @@ export default function BroadcastCenterPage() {
                   value={templateBody}
                   onChange={(e) => setTemplateBody(e.target.value)}
                   rows={4}
-                  className="w-full bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#004ac6]"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-normal focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100 leading-relaxed"
                   placeholder="e.g. Hello {{name}}, renewal date {{due_date}} is close."
                   required
                 />
@@ -1033,53 +1071,53 @@ export default function BroadcastCenterPage() {
 
               {/* Footer Text */}
               <div className="space-y-1">
-                <span className="text-[10px] font-bold text-[#49454f] uppercase tracking-wider block">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                   Footer text (Optional Muted Subtext)
                 </span>
                 <input
                   type="text"
                   value={templateFooter}
                   onChange={(e) => setTemplateFooter(e.target.value)}
-                  className="w-full bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-2 text-xs focus:outline-none"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
                   placeholder="e.g. Reply STOP to opt-out"
                 />
               </div>
 
               {/* CTA Buttons */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold text-[#49454f] uppercase tracking-wider block">
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
                   CTA Action Buttons (Max 2)
                 </span>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   <input
                     type="text"
                     placeholder="Button 1 Label"
                     value={buttonLabel1}
                     onChange={(e) => setButtonLabel1(e.target.value)}
-                    className="w-full bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
                   />
                   <input
                     type="text"
                     placeholder="Button 2 Label"
                     value={buttonLabel2}
                     onChange={(e) => setButtonLabel2(e.target.value)}
-                    className="w-full bg-slate-50 border border-[#c3c6d7] rounded-xl px-3 py-2 text-xs focus:outline-none"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
                   />
                 </div>
               </div>
 
-              <footer className="pt-4 border-t border-slate-100 flex justify-end gap-2">
+              <footer className="pt-3 border-t border-gray-100 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsTemplateModalOpen(false)}
-                  className="px-4 py-2 border border-[#c3c6d7] rounded-xl text-xs font-bold text-[#49454f]"
+                  className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createTemplateMutation.isPending}
-                  className="px-5 py-2 bg-[#004ac6] hover:bg-[#003ca0] text-white rounded-xl text-xs font-bold shadow-md"
+                  className="px-4 py-2 bg-[#004ac6] hover:bg-[#003cb0] text-white rounded-xl text-xs font-semibold shadow-xs disabled:opacity-50 transition-colors"
                 >
                   {createTemplateMutation.isPending ? 'Submitting...' : 'Submit to Meta for Approval'}
                 </button>
